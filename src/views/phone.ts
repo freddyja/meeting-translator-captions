@@ -22,6 +22,7 @@ import {
   LANG_SHORT,
   LANGS,
   LAYOUTS,
+  captionSpeakerName,
   someoneElseSpeaking,
   speechLocale,
   type CaptionLine,
@@ -32,6 +33,8 @@ import {
   type PeerCounts,
   type RoomState,
 } from "../types";
+
+const HOST_NAME = "Host";
 
 const micIcon = `
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -330,11 +333,17 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
       els.preview.textContent = "Captions will appear here and on the TV.";
     }
     els.preview.classList.toggle("interim", Boolean(liveInterim && holding) || (holding && state.listening && !lastFinal));
-    paintCaptionBoard(
-      els.phoneBoard,
-      { layout: state.layout, lines: finalizedLines(state.lines) },
-      liveInterim && holding ? { text: liveInterim, sourceLang: state.sourceLang } : null,
-    );
+    const live =
+      liveInterim && holding
+        ? { text: liveInterim, sourceLang: state.sourceLang, speaker: hostSpeaker() }
+        : null;
+    const boardState = {
+      layout: state.layout,
+      lines: finalizedLines(state.lines),
+      listening: state.listening,
+      floor,
+    };
+    paintCaptionBoard(els.phoneBoard, boardState, live);
 
     screen.classList.toggle("is-smart-view", smartViewMode);
     smartLayer.hidden = !smartViewMode;
@@ -353,13 +362,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
           : "Smart View mode";
     els.svStatus.textContent = speaker;
     els.svDot.className = `dot ${state.listening ? "listening" : connStatus === "live" ? "live" : "offline"}`;
-    if (smartViewMode) {
-      paintCaptionBoard(
-        svBoard,
-        { layout: state.layout, lines: finalizedLines(state.lines) },
-        liveInterim ? { text: liveInterim, sourceLang: state.sourceLang } : null,
-      );
-    }
+    if (smartViewMode) paintCaptionBoard(svBoard, boardState, live);
 
     for (const btn of root.querySelectorAll<HTMLButtonElement>(
       "[data-source] [data-lang], [data-smart-source] [data-lang]",
@@ -371,6 +374,10 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     for (const btn of layoutBox.querySelectorAll<HTMLButtonElement>("[data-layout]")) {
       btn.classList.toggle("active", btn.dataset.layout === state.layout);
     }
+  }
+
+  function hostSpeaker(): string {
+    return captionSpeakerName(floor.holderName, HOST_NAME);
   }
 
   function setLiveInterim(text: string) {
@@ -395,6 +402,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
       id: crypto.randomUUID(),
       isFinal: true,
       text: translated,
+      speaker: hostSpeaker(),
       at: Date.now(),
     };
     const lines = coalesce
@@ -440,7 +448,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
       }
       speech.setLang(speechLocale(state.sourceLang));
       speech.start();
-      const ok = (await conn?.claimFloor("Host")) ?? false;
+      const ok = (await conn?.claimFloor(HOST_NAME)) ?? false;
       if (!ok) {
         speech.stop();
         pendingFinal = "";
@@ -477,7 +485,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
         renderDynamic();
         return;
       }
-      const ok = (await conn?.claimFloor("Host")) ?? false;
+      const ok = (await conn?.claimFloor(HOST_NAME)) ?? false;
       if (!ok) {
         speech.stop();
         error = someoneElseSpeaking(floor);
@@ -732,7 +740,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
         return;
       }
       if (!isFloorHolder(floor, peerId)) {
-        const ok = (await conn?.claimFloor("Host")) ?? false;
+        const ok = (await conn?.claimFloor(HOST_NAME)) ?? false;
         if (!ok) {
           error = someoneElseSpeaking(floor);
           renderDynamic();
@@ -790,7 +798,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
   conn = connectRoom({
     room,
     role: "phone",
-    name: "Host",
+    name: HOST_NAME,
     onJoined(info) {
       peerId = info.peerId;
       floor = info.floor ?? floor;

@@ -1,7 +1,8 @@
 import { joinSearch, parseRoute, parseTvLang, tvSearch } from "../src/router.ts";
 import { detectSpeechCapability, isAppleMobile } from "../src/stt/capability.ts";
 import { createWebSpeechProvider } from "../src/stt/web-speech.ts";
-import { isWatchLang, keepsLocalCaptions, langsForLayout, langsForWatch, lostFloor, reconcileFloor, speechLocale } from "../src/types.ts";
+import { renderCaptionBoard } from "../src/views/caption-board.ts";
+import { captionSpeakerName, isWatchLang, keepsLocalCaptions, langsForLayout, langsForWatch, lostFloor, reconcileFloor, speechLocale } from "../src/types.ts";
 
 function assert(cond, message) {
   if (!cond) throw new Error(message);
@@ -122,6 +123,74 @@ assert(reconcileFloor(hostFloor, emptyFloor, "host").holderId === "host", "stale
 assert(lostFloor(guestFloor, hostFloor, "guest") === true, "another holder takes the floor");
 assert(lostFloor(guestFloor, emptyFloor, "guest") === false, "our own Stop is not someone else speaking");
 assert(lostFloor(emptyFloor, emptyFloor, "guest") === false, "watching a release is not losing the mic");
+
+assert(captionSpeakerName("", "Host") === "Host", "empty host name falls back to Host");
+assert(captionSpeakerName("   ", "Guest") === "Guest", "empty guest name falls back to Guest");
+assert(captionSpeakerName("  Ada  ", "Guest") === "Ada", "guest display name is kept on the caption");
+
+const adaLine = {
+  id: "1",
+  isFinal: true,
+  at: 1,
+  speaker: "Ada",
+  text: { en: "Hello", es: "Hola", pt: "Olá" },
+};
+const adaBoard = renderCaptionBoard({
+  layout: "en-es-pt",
+  lines: [adaLine],
+  floor: { holderId: "guest", holderName: "Ada" },
+  listening: true,
+});
+assert(adaBoard.shown.join(",") === "en,es,pt", "speaker labels render in every language window");
+for (const lang of ["en", "es", "pt"]) {
+  assert(adaBoard.html.includes(`data-lang="${lang}"`), `${lang} window is present`);
+}
+assert((adaBoard.html.match(/class="line-speaker">Ada/g) || []).length === 3, "Ada is labeled on EN, ES, and PT");
+const repeatBoard = renderCaptionBoard(
+  {
+    layout: "en",
+    lines: [
+      adaLine,
+      { ...adaLine, id: "2", text: { en: "Again", es: "Otra", pt: "De novo" } },
+    ],
+  },
+  null,
+  ["en"],
+);
+assert((repeatBoard.html.match(/class="line-speaker">Ada/g) || []).length === 2, "each caption line keeps the speaker name");
+assert(!adaBoard.html.includes("Listening…"), "same speaker does not add a second listening row");
+
+const watchBoard = renderCaptionBoard(
+  {
+    layout: "en-es-pt",
+    lines: [adaLine],
+    floor: { holderId: "host", holderName: "Host" },
+    listening: true,
+  },
+  null,
+  ["es"],
+);
+assert(watchBoard.shown.join(",") === "es", "Watch single pane stays one language");
+assert(watchBoard.html.includes('class="line-speaker">Ada'), "Watch pane keeps who said the caption");
+assert(watchBoard.html.includes('class="line-speaker">Host'), "floor change shows the new speaker on Watch");
+assert(watchBoard.html.includes("Listening…"), "new floor holder is marked as the active speaker");
+
+const blankBoard = renderCaptionBoard(
+  {
+    layout: "en",
+    lines: [{ id: "2", isFinal: true, at: 2, speaker: "   ", text: { en: "Hello", es: "Hola", pt: "Olá" } }],
+  },
+  null,
+  ["en"],
+);
+assert(!blankBoard.html.includes("line-speaker"), "empty speaker does not render a blank label");
+
+const liveBoard = renderCaptionBoard(
+  { layout: "en-es-pt", lines: [], listening: true, floor: { holderId: "guest", holderName: "Ada" } },
+  { text: "hello", sourceLang: "en", speaker: "Ada" },
+);
+assert((liveBoard.html.match(/class="line-speaker">Ada/g) || []).length === 3, "interim captions name the speaker in each window");
+assert(liveBoard.html.includes("hello"), "spoken draft stays on the source pane");
 
 assert(speechLocale("en") === "en-US", "English recognizer locale");
 assert(speechLocale("es") === "es-ES", "Spanish recognizer locale");

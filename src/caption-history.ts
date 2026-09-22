@@ -1,4 +1,4 @@
-import { MAX_LINES, type CaptionLine, type Lang } from "./types";
+import { MAX_LINES, type CaptionLine, type Lang } from "./types.ts";
 
 export const INTERIM_ID = "interim";
 

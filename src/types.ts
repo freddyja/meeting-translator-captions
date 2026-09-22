@@ -13,6 +13,8 @@ export type CaptionLine = {
   isFinal: boolean;
   text: Record<Lang, string>;
   at: number;
+  /** Who spoke this line. Empty means the caption predates speaker labels. */
+  speaker?: string;
 };
 
 export type RoomState = {
@@ -99,6 +101,11 @@ export function sanitizePeerName(value: unknown, fallback = "Guest"): string {
     .trim()
     .slice(0, 24);
   return name || fallback;
+}
+
+/** Name stored on a caption line. Blank input uses Host or Guest — never an empty label. */
+export function captionSpeakerName(value: unknown, fallback: "Host" | "Guest"): string {
+  return sanitizePeerName(value, fallback);
 }
 
 export function isFloorHolder(floor: FloorState | null | undefined, peerId: string | null | undefined): boolean {

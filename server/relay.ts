@@ -318,9 +318,39 @@ function withFloor(state: RoomState, floor: Floor, room: string): RoomState {
     layout,
     sourceLang,
     listening: floor.holderId ? Boolean(state.listening) : false,
-    lines: Array.isArray(state.lines) ? state.lines : [],
+    lines: sanitizeCaptionLines(state.lines),
     floor: snapshotFloor(floor),
   };
+}
+
+/** Keep speaker (and only known caption fields) so a push cannot drop who spoke. */
+function sanitizeCaptionLines(lines: unknown): unknown[] {
+  if (!Array.isArray(lines)) return [];
+  const clean = [];
+  for (const line of lines) {
+    if (!line || typeof line !== "object" || Array.isArray(line)) continue;
+    const row = line as Record<string, unknown>;
+    const textIn = row.text;
+    const text: Record<string, string> = {};
+    if (textIn && typeof textIn === "object" && !Array.isArray(textIn)) {
+      const bag = textIn as Record<string, unknown>;
+      for (const lang of ["en", "es", "pt"]) {
+        if (typeof bag[lang] === "string") text[lang] = bag[lang];
+      }
+    }
+    const next: Record<string, unknown> = {
+      id: typeof row.id === "string" ? row.id : "",
+      isFinal: typeof row.isFinal === "boolean" ? row.isFinal : true,
+      text,
+      at: typeof row.at === "number" && Number.isFinite(row.at) ? row.at : 0,
+    };
+    if (typeof row.speaker === "string") {
+      const speaker = sanitizeName(row.speaker, "");
+      if (speaker) next.speaker = speaker;
+    }
+    clean.push(next);
+  }
+  return clean;
 }
 
 function emptyFloor(): Floor {

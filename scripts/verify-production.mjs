@@ -448,6 +448,7 @@ async function main() {
   assert(String(toEs.state?.lines?.[0]?.text?.pt || "").includes("todos"), "ES window still receives PT text");
   assert(toPt.state?.lines?.[0]?.text?.es === "Bienvenidos a todos.", "PT window still receives ES text");
   assert(toCombined.state?.lines?.[0]?.text?.pt === toPt.state?.lines?.[0]?.text?.pt, "all TVs get the same caption stream");
+  assert(toCombined.state?.lines?.[0]?.speaker === undefined, "a caption without a speaker is not given a blank label");
 
   const floorRoom = "FLRA";
   const hostWs = await connect("phone", floorRoom);
@@ -530,6 +531,8 @@ async function main() {
             id: "guest-a-line",
             isFinal: true,
             at: Date.now(),
+            speaker: "  Ada  ",
+            note: "drop-me",
             text: { en: "Peace to you friends.", es: "Paz a ustedes amigos.", pt: "Paz a vocês amigos." },
           },
         ],
@@ -545,6 +548,9 @@ async function main() {
   assert(tvCaption.state?.lines?.[0]?.text?.es === "Paz a ustedes amigos.", "TV shows guest captions");
   assert(otherGuestCaption.state?.lines?.[0]?.text?.en === "Peace to you friends.", "other guest sees captions");
   assert(guestCaption.state?.floor?.holderName === "Carlos", "floor holder name rides on state");
+  assert(tvCaption.state?.lines?.[0]?.speaker === "Ada", "relay keeps the caption speaker for the TV");
+  assert(guestCaption.state?.lines?.[0]?.speaker === "Ada", "relay keeps the caption speaker for phones");
+  assert(!("note" in (tvCaption.state?.lines?.[0] || {})), "unknown caption fields are dropped without dropping speaker");
 
   hostWs.ws.send(JSON.stringify({ type: "floor", action: "force" }));
   const hostForce = await waitFor(hostWs.inbox, "floor", (msg) => msg.ok === true && msg.floor?.holderId === hostJoined.peerId);

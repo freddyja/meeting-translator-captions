@@ -20,6 +20,7 @@ import {
   LANGS,
   isWatchLang,
   langsForWatch,
+  captionSpeakerName,
   sanitizePeerName,
   someoneElseSpeaking,
   speechLocale,
@@ -257,8 +258,8 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     }
     paintCaptionBoard(
       board,
-      { layout: state.layout, lines: finalizedLines(state.lines) },
-      liveInterim && holding ? { text: liveInterim, sourceLang } : null,
+      { layout: state.layout, lines: finalizedLines(state.lines), listening: state.listening, floor },
+      liveInterim && holding ? { text: liveInterim, sourceLang, speaker: guestSpeaker() } : null,
       langsForWatch(watchLang),
     );
     syncOrientation();
@@ -337,16 +338,33 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     })();
   };
 
+  function guestSpeaker(): string {
+    const typed = nameInput.value.trim() ? nameInput.value : displayName;
+    return captionSpeakerName(typed, "Guest");
+  }
+
+  function currentGuestName(): string {
+    const next = guestSpeaker();
+    if (next !== displayName) {
+      displayName = next;
+      writeGuestName(displayName);
+      nameInput.value = displayName;
+      if (isFloorHolder(floor, peerId)) void conn?.claimFloor(displayName);
+    }
+    return displayName;
+  }
+
   async function publishFinal(text: string, coalesce = true) {
     const spoken = text.trim();
     if (!spoken) return;
+    const speaker = currentGuestName();
     if (floorHeldByOther(floor, peerId)) {
       error = someoneElseSpeaking(floor);
       renderDynamic();
       return;
     }
     if (!isFloorHolder(floor, peerId)) {
-      const ok = (await conn?.claimFloor(displayName)) ?? false;
+      const ok = (await conn?.claimFloor(speaker)) ?? false;
       if (!ok || !isFloorHolder(floor, peerId)) {
         error = someoneElseSpeaking(floor);
         renderDynamic();
@@ -367,6 +385,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
       id: crypto.randomUUID(),
       isFinal: true,
       text: translated,
+      speaker,
       at: Date.now(),
     };
     const lines = coalesce
@@ -433,6 +452,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     displayName = sanitizePeerName(nameInput.value, "Guest");
     writeGuestName(displayName);
     nameInput.value = displayName;
+    if (isFloorHolder(floor, peerId)) void conn?.claimFloor(displayName);
   };
 
   const onHome = () => {
@@ -447,13 +467,14 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     void (async () => {
       const text = typeInput.value.trim();
       if (!text) return;
+      const speaker = currentGuestName();
       if (floorHeldByOther(floor, peerId)) {
         error = someoneElseSpeaking(floor);
         renderDynamic();
         return;
       }
       if (!isFloorHolder(floor, peerId)) {
-        const ok = (await conn?.claimFloor(displayName)) ?? false;
+        const ok = (await conn?.claimFloor(speaker)) ?? false;
         if (!ok) {
           error = someoneElseSpeaking(floor);
           renderDynamic();
