@@ -478,42 +478,24 @@ button, input, select, textarea {
   margin-bottom: 0;
 }
 
-/* .screen sets min-height: 100dvh, which on iPhone Safari is taller than the
-   visible area while the toolbars are up. Cap Join at the small viewport so
-   the spoken-language dock stays on screen instead of under the toolbar. */
-html:has(.join-screen),
-body:has(.join-screen) {
-  height: 100svh;
-  max-height: 100dvh;
-  overflow: hidden;
-}
-
-#app:has(.join-screen) {
-  min-height: 0;
-  height: 100%;
-  max-height: 100%;
-  overflow: hidden;
-}
-
+/* Join is a normal page. Captions sit above Spoken and Watch in document
+   flow. The screen grows past the small viewport and the page scrolls —
+   nothing is fixed over the dock, and html/body are not overflow-locked. */
 .join-screen {
-  width: 100%;
-  max-width: 52rem;
-  margin: 0 auto;
-  min-height: 0;
-  height: 100dvh;
-  height: 100svh;
-  height: 100%;
-  max-height: 100svh;
-  max-height: 100dvh;
+  position: relative;
+  width: min(100%, 52rem);
+  margin-inline: auto;
+  min-height: 100svh;
+  height: auto;
+  max-height: none;
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
-  overflow: hidden;
-  overscroll-behavior: contain;
+  overflow: visible;
   padding:
     max(0.75rem, env(safe-area-inset-top))
     max(0.9rem, env(safe-area-inset-right))
-    0
+    max(0.7rem, env(safe-area-inset-bottom))
     max(0.9rem, env(safe-area-inset-left));
 }
 
@@ -537,30 +519,29 @@ body:has(.join-screen) {
 }
 
 .join-main {
-  flex: 1 1 0%;
-  min-height: 0;
-  overflow: hidden;
+  flex: 1 0 auto;
+  min-height: 9rem;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
 }
 
 .join-screen .tv-board {
-  flex: 1 1 auto;
-  min-height: 0;
-  height: 100%;
+  flex: 1 0 auto;
+  min-height: 9rem;
+  height: auto;
   align-content: stretch;
-  grid-auto-rows: minmax(0, 1fr);
+  grid-auto-rows: minmax(4.5rem, auto);
 }
 
 .join-screen .window {
-  min-height: 0;
+  min-height: 4.5rem;
   min-width: 0;
-  overflow: hidden;
 }
 
 .join-screen .lines {
-  min-height: 0;
+  min-height: 2rem;
   overflow: hidden;
 }
 
@@ -570,37 +551,19 @@ body:has(.join-screen) {
 
 .join-screen[data-orientation="landscape"] .tv-board[data-count="2"] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: minmax(3.25rem, auto);
 }
 
 .join-dock {
-  flex: 0 1 auto;
-  min-height: 0;
+  flex: 0 0 auto;
   position: relative;
-  z-index: 4;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   gap: 0.45rem;
-  margin-top: 0;
-  overflow: hidden;
-  padding: 0.45rem 0 max(0.7rem, env(safe-area-inset-bottom));
-  background: var(--bg);
+  margin-top: 0.35rem;
+  padding: 0.45rem 0 0;
+  background: transparent;
   border-top: 1px solid var(--line);
-}
-
-.join-dock > * {
-  flex: 0 0 auto;
-}
-
-/* Tip, name, and footer yield first so spoken language + mic/Type stay visible. */
-.join-dock .smart-view-tip,
-.join-dock .join-name,
-.join-dock .credit-footer,
-.join-dock .hint {
-  flex: 0 1 auto;
-  min-height: 0;
-  overflow: hidden;
 }
 
 .join-dock .hint {
@@ -641,14 +604,21 @@ body:has(.join-screen) {
     padding:
       max(0.4rem, env(safe-area-inset-top))
       max(0.7rem, env(safe-area-inset-right))
-      0
+      max(0.45rem, env(safe-area-inset-bottom))
       max(0.7rem, env(safe-area-inset-left));
   }
 
   .join-screen .tv-top {
     flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 0.4rem;
+    min-width: 0;
+  }
+
+  .join-screen .brand,
+  .join-screen .brand-text {
+    min-width: 0;
   }
 
   .join-screen .brand-mark {
@@ -658,6 +628,9 @@ body:has(.join-screen) {
 
   .join-screen .brand-text h1 {
     font-size: 1.05rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .join-screen .brand-text p {
@@ -665,10 +638,29 @@ body:has(.join-screen) {
   }
 
   .join-screen .tv-meta {
-    flex: 1;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    min-width: 0;
     justify-content: flex-end;
     gap: 0.3rem;
     font-size: 0.75rem;
+  }
+
+  .join-screen .room-pill,
+  .join-screen .status-pill,
+  .join-screen .ghost {
+    white-space: nowrap;
+  }
+
+  .join-screen .status-pill {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .join-screen .ghost {
+    flex: none;
+    min-height: 36px;
+    padding: 0.2rem 0.5rem;
   }
 
   .join-screen .floor-banner {
@@ -687,8 +679,12 @@ body:has(.join-screen) {
   }
 
   .join-screen .tv-board .line,
-  .join-screen .tv-board .empty-caption {
-    font-size: clamp(0.95rem, 4.2vw, 1.35rem);
+  .join-screen .tv-board .empty-caption,
+  .join-screen .tv-board[data-count="2"] .line,
+  .join-screen .tv-board[data-count="3"] .line,
+  .join-screen .tv-board[data-count="2"] .empty-caption,
+  .join-screen .tv-board[data-count="3"] .empty-caption {
+    font-size: clamp(0.92rem, 3.8vw, 1.28rem);
     line-height: 1.15;
   }
 
@@ -739,20 +735,42 @@ body:has(.join-screen) {
   }
 }
 
+/* Narrow phones: title on one line, room and Leave on the next, so the name
+   is not ellipsized down to a few letters. */
+@media (max-width: 480px) {
+  .join-screen .tv-top {
+    flex-wrap: wrap;
+    row-gap: 0.15rem;
+  }
+
+  .join-screen .brand {
+    flex: 1 1 auto;
+  }
+
+  .join-screen .brand-text h1 {
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .join-screen .tv-meta {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
+}
+
 @media (min-width: 700px) {
 .join-screen .tv-board[data-count="2"], .join-screen[data-orientation="landscape"] .tv-board[data-count="2"] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: minmax(0, 1fr);
+    grid-template-rows: minmax(4.5rem, auto);
   }
 
   .join-screen .tv-board[data-count="3"], .join-screen[data-orientation="landscape"] .tv-board[data-count="3"] {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-rows: minmax(0, 1fr);
+    grid-template-rows: minmax(4.5rem, auto);
   }
 }
 
-/* Short portrait (iPhone SE / Safari toolbars): drop the hint and footer so
-   each caption pane keeps a readable line, and the talk controls stay put. */
+/* Very short portrait: tighten spacing. The page still scrolls; nothing is clipped. */
 @media (max-height: 620px) {
 .join-screen .smart-view-tip,
   .join-dock .credit-footer {
@@ -795,8 +813,7 @@ body:has(.join-screen) {
   }
 }
 
-/* iPhone sideways: panes in one row, talk controls on screen.
-   Name yields so Spoken, Watch, and Start / Type+Send stay in view. */
+/* iPhone sideways: panes in one row. The page can still scroll to Spoken and Watch. */
 @media (max-height: 520px) {
 .join-screen > .floor-banner,
   .join-dock .credit-footer,
@@ -815,6 +832,17 @@ body:has(.join-screen) {
   .join-screen .join-type input,
   .join-screen .join-type .primary {
     min-height: 40px;
+  }
+}
+
+@media (max-height: 520px) {
+  .join-main,
+  .join-screen .tv-board {
+    min-height: 4.5rem;
+  }
+
+  .join-screen .window {
+    min-height: 3.25rem;
   }
 }
 
@@ -866,11 +894,13 @@ body:has(.join-screen) {
 /* One Watch language fills the join caption area. All three keeps the shared board. */
 .join-screen .tv-board[data-count="1"] {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: minmax(8rem, auto);
+  min-height: 8rem;
 }
 
 .join-screen .tv-board[data-count="1"] .window {
-  height: 100%;
+  min-height: 8rem;
+  height: auto;
 }
 
 .join-screen .tv-board[data-count="1"] .line,

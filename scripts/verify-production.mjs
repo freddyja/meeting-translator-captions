@@ -146,6 +146,8 @@ async function main() {
   assert(appJs.includes("Safari rejected"), "rejected speech locale is named");
   assert(appJs.includes("phone-live-board"), "host phone shows EN ES PT caption panes");
   assert(appJs.includes("join-screen"), "guest join is a phone layout, not Fold-only");
+  assert(!appJs.includes("join-dock-pin"), "join does not pin the caption board over the dock");
+  assert(!appJs.includes("--join-vvh"), "join does not lock to a measured viewport height");
   assert(appJs.includes("Offline / Local meeting"), "offline / local meeting toggle");
   assert(appJs.includes("Offline translate (limited phrases)"), "offline translate banner");
   assert(appJs.includes("npm run build"), "laptop setup npm run build");
@@ -172,6 +174,9 @@ async function main() {
   );
   assert(appCss.includes("smart-view-source-chip"), "Smart View spoken language chip style");
   assert(appCss.includes("join-screen"), "guest join screen class");
+  assert(!appCss.includes("join-dock-pin"), "join dock is not a pinned layer");
+  assert(!appCss.includes("--join-vvh"), "join is not locked to a visual-viewport variable");
+  assert(!/position:\s*fixed/.test(appCss), "join does not use a fixed lock overlay");
   assert(appCss.includes("join-watch"), "join Watch controls are styled");
   assert(
     appCss.includes('.join-screen .tv-board[data-count="1"]') ||
