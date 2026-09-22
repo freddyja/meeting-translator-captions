@@ -1,4 +1,4 @@
-const CACHE = "meeting-translator-v1";
+const CACHE = "meeting-translator-v2";
 const PRECACHE = [
   "/",
   "/index.html",
