@@ -86,8 +86,8 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
           <div class="preview phone-caption-preview">
             <p class="control-label">On this phone</p>
             <p data-preview></p>
-            <div class="tv-board phone-live-board" data-phone-board></div>
           </div>
+          <div class="tv-board phone-live-board" data-phone-board></div>
         </div>
 
         <div class="phone-side">
