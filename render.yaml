@@ -13,6 +13,8 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
+      # Applies during build as well as runtime. `npm ci` then omits
+      # devDependencies, so the TypeScript/Vite toolchain is in dependencies.
       - key: NODE_ENV
         value: production
       # Recommended: DeepL Free in the Render dashboard (never commit a key):
