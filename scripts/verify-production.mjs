@@ -106,6 +106,7 @@ async function main() {
   assert(scriptSrc, "built app script");
   const { body: appJs } = await text(scriptSrc);
   assert(appJs.includes("Meeting Translator"), "Meeting Translator branding");
+  assert(appJs.includes("Designed by Freddy Jara-Almonte"), "designer credit under the title");
   assert(!appJs.includes("Ask for " + retired), "no curriculum prompt");
   assert(!appJs.includes("of the day"), "no daily curriculum control");
   assert(appJs.includes("Send to TV"), "phone Send to TV button");

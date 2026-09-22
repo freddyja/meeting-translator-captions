@@ -107,6 +107,22 @@ button, input, select, textarea {
 
 .brand-text p {
   margin: 0.15rem 0 0;
+}
+
+.brand-text .brand-credit {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.35;
+  text-transform: none;
+}
+
+.brand-compact .brand-text .brand-credit {
+  font-size: 0.7rem;
+}
+
+.brand-text .brand-langs {
   color: var(--gold);
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -774,8 +790,13 @@ button, input, select, textarea {
     text-overflow: ellipsis;
   }
 
-  .join-screen .brand-text p {
+  .join-screen .brand-text .brand-langs {
     display: none;
+  }
+
+  .join-screen .brand-text .brand-credit {
+    font-size: 0.68rem;
+    line-height: 1.25;
   }
 
   .join-screen .tv-meta {
@@ -1801,7 +1822,12 @@ button, input, select, textarea {
     font-size: 1.15rem;
   }
 
-  .phone-screen:not(.is-smart-view) .brand-text p {
+  .phone-screen:not(.is-smart-view) .brand-text .brand-credit {
+    font-size: 0.72rem;
+    letter-spacing: 0.01em;
+  }
+
+  .phone-screen:not(.is-smart-view) .brand-text .brand-langs {
     font-size: 0.62rem;
     letter-spacing: 0.14em;
   }
@@ -1980,7 +2006,13 @@ button, input, select, textarea {
     font-size: 1.05rem;
   }
 
-  .phone-screen:not(.is-smart-view) .brand-text p {
+  .phone-screen:not(.is-smart-view) .brand-text .brand-credit {
+    font-size: 0.65rem;
+    letter-spacing: 0.01em;
+    line-height: 1.25;
+  }
+
+  .phone-screen:not(.is-smart-view) .brand-text .brand-langs {
     display: none;
   }
 

@@ -13,7 +13,8 @@ export function brandBlock(compact = false): string {
       ${mark}
       <div class="brand-text">
         <h1>Meeting Translator</h1>
-        <p>EN · ES · PT</p>
+        <p class="brand-credit">Designed by Freddy Jara-Almonte</p>
+        <p class="brand-langs">EN · ES · PT</p>
       </div>
     </div>
   `;
