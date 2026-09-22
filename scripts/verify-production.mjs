@@ -180,6 +180,16 @@ async function main() {
   assert(appCss.includes("join-screen"), "guest join screen class");
   assert(appCss.includes("join-setup"), "join setup screen is styled");
   assert(
+    appCss.includes(".screen[hidden]") &&
+      appCss.includes(".join-setup[hidden]") &&
+      appCss.includes(".join-screen[hidden]") &&
+      /display:\s*none\s*!important/.test(appCss),
+    "hidden join screens stay display none when .screen sets display",
+  );
+  assert(appJs.includes("data-setup-watch-lang"), "setup watch chips use their own attribute");
+  assert(appJs.includes("[data-setup-watch]"), "setup watch container keeps its own selector");
+  assert(!appJs.includes('data-setup-watch="${'), "setup watch chips do not reuse the container attribute");
+  assert(
     !/phone-screen:not\(\.is-smart-view\)\{[^}]*overflow:\s*hidden/.test(appCss.replace(/\s+/g, "")),
     "host phone screen does not lock the viewport",
   );
