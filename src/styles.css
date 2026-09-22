@@ -60,6 +60,13 @@ button, input, select, textarea {
     max(1.25rem, env(safe-area-inset-left));
 }
 
+/* Author display on .screen beats the UA [hidden] rule, so hide explicitly. */
+.screen[hidden],
+.join-setup[hidden],
+.join-screen[hidden] {
+  display: none !important;
+}
+
 .brand {
   display: flex;
   align-items: center;

@@ -179,7 +179,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   ).join("");
   setupWatch.innerHTML = WATCH_OPTIONS.map(
     (option) =>
-      `<button class="chip watch-chip" type="button" data-setup-watch="${option.id}" aria-label="Watch ${option.label}" aria-pressed="false"><span class="watch-name">${option.name}</span><span class="watch-scope">${option.scope}</span></button>`,
+      `<button class="chip watch-chip" type="button" data-setup-watch-lang="${option.id}" aria-label="Watch ${option.label}" aria-pressed="false"><span class="watch-name">${option.name}</span><span class="watch-scope">${option.scope}</span></button>`,
   ).join("");
 
   const els = {
@@ -483,8 +483,8 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
       btn.classList.toggle("active", on);
       btn.setAttribute("aria-pressed", String(on));
     }
-    for (const btn of setupWatch.querySelectorAll<HTMLButtonElement>("[data-setup-watch]")) {
-      const on = btn.dataset.setupWatch === watchLang;
+    for (const btn of setupWatch.querySelectorAll<HTMLButtonElement>("[data-setup-watch-lang]")) {
+      const on = btn.dataset.setupWatchLang === watchLang;
       btn.classList.toggle("active", on);
       btn.setAttribute("aria-pressed", String(on));
     }
@@ -500,9 +500,9 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   };
 
   const onSetupWatch = (event: Event) => {
-    const btn = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-setup-watch]");
-    if (!btn?.dataset.setupWatch || !isWatchLang(btn.dataset.setupWatch)) return;
-    watchLang = btn.dataset.setupWatch;
+    const btn = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-setup-watch-lang]");
+    if (!btn?.dataset.setupWatchLang || !isWatchLang(btn.dataset.setupWatchLang)) return;
+    watchLang = btn.dataset.setupWatchLang;
     writeWatchLang(watchLang);
     paintSetup();
   };
