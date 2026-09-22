@@ -199,6 +199,27 @@ function createRecognitionWorld({ stickyFirstInstance, rejectLocales = [] }) {
       }
       return "final";
     }
+    /** iOS-style draft: words on device, isFinal withheld. */
+    emitPartial(spokenLocale, text) {
+      if (!this.running) return "idle";
+      if (spokenLocale !== this.engineLang) {
+        this.running = false;
+        this.onerror?.({ error: "no-speech" });
+        this.onend?.();
+        return "no-speech";
+      }
+      this.onresult?.({
+        resultIndex: 0,
+        results: [{ isFinal: false, 0: { transcript: text } }],
+      });
+      return "interim";
+    }
+    finish() {
+      if (!this.running) return "idle";
+      this.running = false;
+      this.onend?.();
+      return "end";
+    }
   }
   return {
     Rec,
@@ -213,13 +234,14 @@ async function flush() {
   for (let i = 0; i < 8; i += 1) await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-function harness(world, appleMobile) {
+function harness(world, appleMobile, extra = {}) {
   const finals = [];
   const errors = [];
   const speech = createWebSpeechProvider({
     appleMobile,
     recognitionCtor: world.Rec,
     scheduleRestart: (run) => queueMicrotask(run),
+    ...extra,
   });
   speech.onResult = (result) => {
     if (result.isFinal) finals.push(result.text);
@@ -316,5 +338,95 @@ await flush();
 assert(chrome.active()[0]?.engineLang === "pt-BR", "Chrome Portuguese session is pt-BR");
 assert(chrome.active()[0].emit("pt-BR", "Boa noite a todos") === "final", "Chrome Portuguese final");
 assert(chromeSpeech.errors.length === 0, `Chrome switch raised ${chromeSpeech.errors.join(" | ")}`);
+
+const second = createRecognitionWorld({ stickyFirstInstance: true });
+const secondSpeech = harness(second, true);
+secondSpeech.speech.start();
+await flush();
+assert(second.active()[0].emit("en-US", "First phrase") === "final", "first iPhone phrase");
+await flush();
+assert(second.active()[0]?.emit("en-US", "Second phrase") === "final", "second iPhone phrase reuses index 0");
+assert(
+  secondSpeech.finals.join("|") === "First phrase|Second phrase",
+  `iPhone second utterance dropped: ${secondSpeech.finals.join("|")}`,
+);
+
+const uttered = createRecognitionWorld({ stickyFirstInstance: true });
+const utteredSpeech = harness(uttered, true, {
+  scheduleCommit: (run) => {
+    utteredSpeech.commit = run;
+  },
+});
+utteredSpeech.speech.start();
+await flush();
+assert(uttered.active()[0].emitPartial("en-US", "Hola") === "interim", "iPhone partial");
+assert(uttered.active()[0].emitPartial("en-US", "Hola a todos") === "interim", "iPhone partial grew");
+assert(uttered.active()[0].emitPartial("en-US", "") === "interim", "empty Safari result keeps the phrase");
+assert(utteredSpeech.finals.length === 0, "iPhone interims stay on the phone until the utterance ends");
+assert(uttered.active()[0].finish() === "end", "iPhone utterance ended without isFinal");
+await flush();
+assert(
+  utteredSpeech.finals.join("|") === "Hola a todos",
+  `onend promotes the latest interim only: ${utteredSpeech.finals.join("|")}`,
+);
+assert(uttered.active()[0]?.emitPartial("en-US", "Hola a todos") === "interim", "same phrase can be spoken again");
+uttered.active()[0].finish();
+await flush();
+assert(
+  utteredSpeech.finals.join("|") === "Hola a todos|Hola a todos",
+  `repeated iPhone utterance: ${utteredSpeech.finals.join("|")}`,
+);
+
+const stalled = createRecognitionWorld({ stickyFirstInstance: true });
+const stalledSpeech = harness(stalled, true, {
+  scheduleCommit: (run) => {
+    stalledSpeech.commit = run;
+  },
+});
+stalledSpeech.speech.start();
+await flush();
+const stalledRec = stalled.active()[0];
+assert(stalledRec.emitPartial("en-US", "Buenos") === "interim");
+assert(stalledRec.emitPartial("en-US", "Buenos dias") === "interim");
+assert(stalledSpeech.finals.length === 0, "stalled interim is not pushed on every keystroke");
+assert(typeof stalledSpeech.commit === "function", "iPhone schedules one commit for a stalled interim");
+stalledSpeech.commit();
+assert(stalledSpeech.finals.join("|") === "Buenos dias", `stalled interim publishes once: ${stalledSpeech.finals.join("|")}`);
+stalledSpeech.commit();
+stalledRec.emitPartial("en-US", "Buenos dias");
+stalledSpeech.commit();
+assert(stalledSpeech.finals.length === 1, "repeating the same interim does not flood peers");
+assert(stalledRec.emit("en-US", "Buenos dias") === "final", "a late engine final still ends the utterance");
+assert(stalledSpeech.finals.length === 1, `late isFinal is not a second caption: ${stalledSpeech.finals.join("|")}`);
+
+const half = createRecognitionWorld({ stickyFirstInstance: true });
+const halfSpeech = harness(half, true, {
+  scheduleCommit: (run) => {
+    halfSpeech.commit = run;
+  },
+});
+halfSpeech.speech.start();
+await flush();
+assert(half.active()[0].emitPartial("en-US", "not sent") === "interim");
+halfSpeech.speech.stop();
+await flush();
+halfSpeech.commit?.();
+assert(halfSpeech.finals.length === 0, "Stop does not publish a half utterance");
+
+const chromeDraft = createRecognitionWorld({ stickyFirstInstance: false });
+let chromeCommits = 0;
+const chromeDraftSpeech = harness(chromeDraft, false, {
+  scheduleCommit: () => {
+    chromeCommits += 1;
+  },
+});
+chromeDraftSpeech.speech.start();
+await flush();
+assert(chromeDraft.active()[0].emitPartial("en-US", "draft only") === "interim");
+chromeDraft.active()[0].finish();
+await flush();
+assert(chromeDraftSpeech.finals.length === 0, "Chrome does not promote interim drafts");
+assert(chromeCommits === 0, "Chrome does not schedule an interim commit");
+assert(chromeDraft.active()[0].emit("en-US", "Welcome everyone") === "final", "Chrome final still publishes");
 
 console.log("OK route — lang= is TV-only, opt-in, and omitted from the combined TV link");
