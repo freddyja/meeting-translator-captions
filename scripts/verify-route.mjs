@@ -1,7 +1,7 @@
 import { joinSearch, parseRoute, parseTvLang, tvSearch } from "../src/router.ts";
 import { detectSpeechCapability, isAppleMobile } from "../src/stt/capability.ts";
 import { createWebSpeechProvider } from "../src/stt/web-speech.ts";
-import { keepsLocalCaptions, lostFloor, reconcileFloor, speechLocale } from "../src/types.ts";
+import { isWatchLang, keepsLocalCaptions, langsForLayout, langsForWatch, lostFloor, reconcileFloor, speechLocale } from "../src/types.ts";
 
 function assert(cond, message) {
   if (!cond) throw new Error(message);
@@ -63,6 +63,15 @@ assert(tvSearch("ABCD", "es") === "view=tv&room=ABCD&lang=es", "per-language TV 
 assert(tvSearch("ABCD", "en") === "view=tv&room=ABCD&lang=en", "en TV query");
 assert(tvSearch("ABCD", "pt") === "view=tv&room=ABCD&lang=pt", "pt TV query");
 assert(joinSearch("ABCD") === "view=join&room=ABCD", "guest join query");
+
+same(langsForLayout("en-es-pt"), ["en", "es", "pt"], "room layout all three unchanged");
+same(langsForLayout("es"), ["es"], "room layout es unchanged");
+same(langsForWatch("all"), ["en", "es", "pt"], "watch all is the three-pane board");
+same(langsForWatch("en"), ["en"], "watch en is one pane");
+same(langsForWatch("es"), ["es"], "watch es is one pane");
+same(langsForWatch("pt"), ["pt"], "watch pt is one pane");
+assert(isWatchLang("all") && isWatchLang("en") && isWatchLang("es") && isWatchLang("pt"), "watch accepts en es pt all");
+assert(!isWatchLang("en-es") && !isWatchLang("fr") && !isWatchLang(""), "watch rejects room layouts and blanks");
 
 assert(isAppleMobile("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)", "iPhone", 5), "iPhone UA is Apple mobile");
 assert(isAppleMobile("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) CriOS/120.0.0.0", "iPhone", 5), "iPhone Chrome is still Apple mobile");

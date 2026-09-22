@@ -36,6 +36,13 @@ export function isLang(value: unknown): value is Lang {
   return value === "en" || value === "es" || value === "pt";
 }
 
+/** Personal caption panes on a join phone. Never sent as the room layout. */
+export type WatchLang = Lang | "all";
+
+export function isWatchLang(value: unknown): value is WatchLang {
+  return value === "all" || isLang(value);
+}
+
 export const LANG_LABEL: Record<Lang, string> = {
   en: "English",
   es: "Español",
@@ -62,6 +69,12 @@ export const MAX_LINES = 8;
 
 export function langsForLayout(layout: Layout): Lang[] {
   return LAYOUTS.find((item) => item.id === layout)?.langs ?? ["en", "es", "pt"];
+}
+
+/** Panes a join phone shows for its Watch preference. Independent of the room layout. */
+export function langsForWatch(watch: WatchLang): Lang[] {
+  if (watch === "all") return [...LANGS];
+  return [watch];
 }
 
 export function emptyFloor(): FloorState {
