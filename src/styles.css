@@ -367,6 +367,14 @@ button, input, select, textarea {
   min-width: 0;
 }
 
+.phone-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+  min-height: 0;
+}
+
 .phone-top {
   display: flex;
   justify-content: space-between;
@@ -702,29 +710,33 @@ button, input, select, textarea {
 }
 
 .phone-live-board {
-  flex: none;
-  gap: 0.4rem;
+  flex: 1 1 auto;
+  gap: 0.45rem;
   min-height: 0;
-  margin-top: 0.7rem;
+  margin-top: 0;
+  grid-auto-rows: minmax(4.75rem, auto);
 }
 
+/* Host column (tablet / Fold inner) stays stacked so each language stays readable.
+   Phone portrait and short landscape override this so all panes share the viewport. */
 .phone-live-board[data-count="2"], .phone-live-board[data-count="3"] {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .phone-live-board .window {
-  border-radius: 14px;
-  padding: 0.55rem 0.7rem 0.7rem;
+  border-radius: 16px;
+  padding: 0.65rem 0.8rem 0.75rem;
   box-shadow: none;
+  min-height: 4.75rem;
 }
 
 .phone-live-board .window-label {
-  margin-bottom: 0.2rem;
-  font-size: 0.68rem;
+  margin-bottom: 0.28rem;
+  font-size: 0.74rem;
 }
 
 .phone-live-board .line, .phone-live-board .empty-caption {
-  font-size: 0.95rem;
+  font-size: clamp(1.05rem, 2.8vw, 1.5rem);
 }
 
 .row-actions {
@@ -1246,32 +1258,157 @@ button, input, select, textarea {
   }
 }
 
-/* Folded cover (~6.5" Galaxy Z Fold): keep the mic in the thumb zone. */
+/* Phone portrait (iPhone Safari and Fold cover): EN | ES | PT fill the screen.
+   The page itself does not scroll — captions stay above the fold. Mic and the
+   rest of the controls live in a bottom dock you can scroll. */
 @media (max-width: 599px) {
-.phone-screen {
-    padding-bottom: calc(12rem + env(safe-area-inset-bottom));
+.phone-screen:not(.is-smart-view) {
+    height: 100dvh;
+    height: 100svh;
+    max-height: 100svh;
+    min-height: 0;
+    overflow: hidden;
+    gap: 0.35rem;
+    padding:
+      max(0.45rem, env(safe-area-inset-top))
+      max(0.7rem, env(safe-area-inset-right))
+      max(0.35rem, env(safe-area-inset-bottom))
+      max(0.7rem, env(safe-area-inset-left));
   }
 
   .phone-screen.is-smart-view {
     padding-bottom: 0;
   }
 
-  
-
-  .phone-screen .mic-wrap {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    margin: 0;
-    padding: 0.45rem 1rem calc(0.55rem + env(safe-area-inset-bottom));
-    background: linear-gradient(180deg, transparent, rgba(11, 18, 20, 0.94) 28%, var(--bg) 52%);
-    z-index: 5;
+  .phone-screen:not(.is-smart-view) .phone-top {
+    flex: none;
+    align-items: center;
+    gap: 0.5rem;
   }
 
-  .phone-screen .mic {
-    width: 132px;
-    height: 132px;
+  .phone-screen:not(.is-smart-view) .brand-mark {
+    width: 32px;
+    height: 32px;
+  }
+
+  .phone-screen:not(.is-smart-view) .brand-text h1 {
+    font-size: 1.15rem;
+  }
+
+  .phone-screen:not(.is-smart-view) .brand-text p {
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-status {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    gap: 0.4rem;
+    grid-template-rows: minmax(0, 1fr) minmax(0, min(30svh, 16rem));
+    align-content: stretch;
+    overflow: hidden;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-main {
+    min-height: 0;
+    overflow: hidden;
+    gap: 0.35rem;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-caption-preview {
+    flex: none;
+    min-height: 0;
+    margin: 0;
+    padding: 0.35rem 0.7rem;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 0.55rem;
+    align-items: center;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-caption-preview .control-label {
+    margin: 0;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-caption-preview [data-preview] {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-live-board {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin: 0;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: minmax(0, 1fr);
+    align-content: stretch;
+    gap: 0.4rem;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-live-board .window {
+    min-height: 0;
+    overflow: hidden;
+    padding: 0.5rem 0.7rem 0.55rem;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-live-board .window-label {
+    margin-bottom: 0.2rem;
+    font-size: 0.72rem;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-live-board .line,
+  .phone-screen:not(.is-smart-view) .phone-live-board .empty-caption {
+    font-size: clamp(1.2rem, 4.8vw, 1.65rem);
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-side {
+    min-height: 0;
+    max-height: 100%;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    border-top: 1px solid var(--line);
+    padding-top: 0.35rem;
+  }
+
+  .phone-screen:not(.is-smart-view) .mic-wrap {
+    position: sticky;
+    top: 0;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    margin: 0;
+    padding: 0.1rem 0 0.25rem;
+    background: var(--bg);
+    z-index: 2;
+  }
+
+  .phone-screen:not(.is-smart-view) .mic {
+    width: 104px;
+    height: 104px;
+  }
+
+  .phone-screen:not(.is-smart-view) .mic svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  .phone-screen:not(.is-smart-view) .controls {
+    gap: 0.7rem;
+  }
+
+  .phone-screen:not(.is-smart-view) > .credit-footer {
+    padding: 0.15rem 0 0;
+    font-size: 0.62rem;
   }
 
   .phone-screen .mic-chrome-hint {
@@ -1306,6 +1443,151 @@ button, input, select, textarea {
   .phone-screen .mic {
     width: 176px;
     height: 176px;
+  }
+}
+
+/* Short landscape (iPhone sideways, Fold cover): three panes in one row,
+   still inside the viewport. Controls scroll in the dock under them. */
+@media (orientation: landscape) and (max-height: 520px) {
+.phone-screen:not(.is-smart-view) {
+    height: 100dvh;
+    height: 100svh;
+    max-height: 100svh;
+    min-height: 0;
+    overflow: hidden;
+    gap: 0.25rem;
+    padding:
+      max(0.35rem, env(safe-area-inset-top))
+      max(0.7rem, env(safe-area-inset-right))
+      max(0.25rem, env(safe-area-inset-bottom))
+      max(0.7rem, env(safe-area-inset-left));
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-top {
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .phone-screen:not(.is-smart-view) .brand-mark {
+    width: 28px;
+    height: 28px;
+  }
+
+  .phone-screen:not(.is-smart-view) .brand-text h1 {
+    font-size: 1.05rem;
+  }
+
+  .phone-screen:not(.is-smart-view) .brand-text p {
+    display: none;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-status {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.25rem;
+    font-size: 0.72rem;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-top: 0;
+    gap: 0.35rem;
+    align-items: stretch;
+    overflow: hidden;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, min(28svh, 7.25rem));
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-main,
+  .phone-screen:not(.is-smart-view) .phone-side {
+    min-height: 0;
+    align-self: stretch;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-main {
+    overflow: hidden;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-caption-preview {
+    min-height: 0;
+    margin: 0;
+    padding: 0.2rem 0.55rem;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 0.45rem;
+    align-items: center;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-caption-preview .control-label {
+    margin: 0;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-caption-preview [data-preview] {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-live-board {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin: 0;
+    grid-auto-rows: minmax(0, 1fr);
+    align-content: stretch;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-live-board[data-count="2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-live-board[data-count="3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-live-board .window {
+    min-height: 0;
+    overflow: hidden;
+    padding: 0.4rem 0.5rem 0.45rem;
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-live-board .line,
+  .phone-screen:not(.is-smart-view) .phone-live-board .empty-caption {
+    font-size: clamp(0.85rem, 2.2vw, 1.25rem);
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-side {
+    max-height: 100%;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    border-top: 1px solid var(--line);
+    padding-top: 0.3rem;
+  }
+
+  .phone-screen:not(.is-smart-view) .mic-wrap {
+    position: sticky;
+    top: 0;
+    margin: 0 0 0.45rem;
+    background: var(--bg);
+  }
+
+  .phone-screen:not(.is-smart-view) .mic {
+    width: 72px;
+    height: 72px;
+  }
+
+  .phone-screen:not(.is-smart-view) .mic svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .phone-screen:not(.is-smart-view) > .credit-footer {
+    padding: 0.1rem 0 0;
+    font-size: 0.62rem;
   }
 }
 
