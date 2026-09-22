@@ -212,6 +212,7 @@ function createRecognitionWorld({ stickyFirstInstance, rejectLocales = [] }) {
       this.running = false;
       this.engineLang = "";
       this.serial = serial;
+      this.pageLangAtBirth = globalThis.document?.documentElement?.lang ?? "";
       serial += 1;
       instances.push(this);
     }
@@ -362,6 +363,139 @@ iphoneSpeech.speech.start();
 await flush();
 assert(iphone.active()[0]?.engineLang === "es-ES", "Start after Stop still uses es-ES on the same object");
 assert(iphone.instances.length === 1, "Stop did not construct a second iPhone recognizer");
+
+async function withPageLang(lang, run) {
+  const previous = globalThis.document;
+  const page = { documentElement: { lang } };
+  globalThis.document = page;
+  try {
+    return await run(page);
+  } finally {
+    if (previous === undefined) delete globalThis.document;
+    else globalThis.document = previous;
+  }
+}
+
+await withPageLang("en", async (page) => {
+  const primed = createRecognitionWorld({ stickyFirstInstance: true });
+  const primedSpeech = harness(primed, true);
+  primedSpeech.speech.setLang(speechLocale("es"));
+  assert(primed.instances.length === 0, "idle setLang does not construct a recognizer before Spoken is primed");
+  assert(page.documentElement.lang === "es-ES", "idle Spanish setLang updates the page language before construction");
+  primedSpeech.speech.setLang(speechLocale("es"), true);
+  assert(primed.instances.length === 1, "Join Spoken=ES creates the single iOS recognizer");
+  assert(primed.instances[0].lang === "es-ES", "Join Spoken=ES sets es-ES before start");
+  assert(primed.instances[0].pageLangAtBirth === "es-ES", "Spanish recognizer is born after the page language is es-ES");
+  assert(primed.active().length === 0, "priming Spoken does not start the mic");
+  primedSpeech.speech.setLang(speechLocale("es"), true);
+  assert(primed.instances.length === 1, "priming Spanish again keeps the same recognizer");
+  primedSpeech.speech.start();
+  await flush();
+  assert(primed.active()[0]?.engineLang === "es-ES", "first start uses the Spoken es-ES already on the recognizer");
+  assert(primed.instances.length === 1, "start does not build a second iOS recognizer after prime");
+  assert(primed.active()[0].emit("es-ES", "Buenas noches a todos") === "final", "primed Spanish final publishes");
+  primedSpeech.speech.stop();
+  await flush();
+  primedSpeech.speech.setLang(speechLocale("pt"), true);
+  assert(primed.instances.length === 1, "Spoken=PT reuses the original recognizer while idle");
+  assert(primed.instances[0].lang === "pt-BR", "Spoken=PT writes pt-BR before the next start");
+  assert(page.documentElement.lang === "pt-BR", "idle Portuguese prime updates the page language");
+  assert(primed.active().length === 0, "idle Portuguese prime does not start the mic");
+  primedSpeech.speech.start();
+  await flush();
+  assert(primed.active()[0]?.engineLang === "pt-BR", "start after idle PT prime uses pt-BR");
+  assert(primed.active()[0].emit("pt-BR", "Boa noite a todos") === "final", "primed Portuguese final publishes");
+  primedSpeech.speech.stop();
+  await flush();
+  primedSpeech.speech.setLang(speechLocale("en"), true);
+  assert(primed.instances[0].lang === "en-US", "Spoken=EN writes en-US on the same object before start");
+  primedSpeech.speech.start();
+  await flush();
+  assert(primed.instances.length === 1, "English after ES and PT still uses the original recognizer");
+  assert(primed.active()[0]?.engineLang === "en-US", "Spoken=EN still starts en-US on the same object");
+  assert(primed.active()[0].emit("en-US", "Welcome everyone") === "final", "English still publishes after ES and PT");
+  assert(primedSpeech.errors.length === 0, `primed Spoken switch raised ${primedSpeech.errors.join(" | ")}`);
+});
+
+await withPageLang("en", async (page) => {
+  const late = createRecognitionWorld({ stickyFirstInstance: true });
+  const lateSpeech = harness(late, true);
+  lateSpeech.speech.setLang(speechLocale("en"), true);
+  lateSpeech.speech.start();
+  await flush();
+  assert(late.active()[0].emit("en-US", "Welcome everyone") === "final", "English session before an idle Spanish switch");
+  lateSpeech.speech.stop();
+  await flush();
+  lateSpeech.speech.setLang(speechLocale("es"), true);
+  assert(late.instances.length === 1, "idle EN → ES does not build a second recognizer");
+  assert(late.instances[0].lang === "es-ES", "idle EN → ES writes es-ES before the next start");
+  assert(page.documentElement.lang === "es-ES", "idle EN → ES updates the page language");
+  lateSpeech.speech.start();
+  await flush();
+  assert(late.active()[0]?.engineLang === "es-ES", "start after idle EN → ES uses es-ES");
+  assert(late.active()[0].emit("es-ES", "Buenas noches a todos") === "final", "Spanish after an English session publishes");
+});
+
+await withPageLang("en", (page) => {
+  const chromePage = createRecognitionWorld({ stickyFirstInstance: false });
+  const chromePageSpeech = harness(chromePage, false);
+  chromePageSpeech.speech.setLang("es-ES", true);
+  assert(page.documentElement.lang === "en", "Chrome does not retarget the page language");
+  assert(chromePage.instances.length === 0, "Chrome prime does not construct the iOS singleton");
+});
+
+{
+  const made = [];
+  let webkitInst = null;
+  class Webkit {
+    constructor() {
+      made.push("webkit");
+      webkitInst = this;
+      this.lang = "";
+    }
+    start() {}
+    stop() {}
+    abort() {}
+  }
+  class Standard {
+    constructor() {
+      made.push("standard");
+      this.lang = "";
+    }
+    start() {}
+    stop() {}
+    abort() {}
+  }
+  const previousWindow = globalThis.window;
+  globalThis.window = { SpeechRecognition: Standard, webkitSpeechRecognition: Webkit };
+  try {
+    const iphoneCtor = createWebSpeechProvider({
+      appleMobile: true,
+      scheduleRestart: () => {},
+      scheduleWatchdog: () => {},
+      scheduleCommit: () => {},
+    });
+    iphoneCtor.setLang("es-ES", true);
+    assert(made.join(",") === "webkit", `iPhone prime used ${made.join(",") || "nothing"}`);
+    assert(webkitInst.lang === "es-ES", "webkit recognizer receives es-ES before start");
+    iphoneCtor.setLang("pt-BR", true);
+    assert(made.length === 1, "pt-BR prime keeps the first webkitSpeechRecognition");
+    assert(webkitInst.lang === "pt-BR", "same webkit recognizer receives pt-BR");
+    made.length = 0;
+    const chromeCtor = createWebSpeechProvider({
+      appleMobile: false,
+      scheduleRestart: () => {},
+      scheduleWatchdog: () => {},
+      scheduleCommit: () => {},
+    });
+    chromeCtor.setLang("es-ES", true);
+    chromeCtor.start();
+    assert(made.join(",") === "standard", `Chrome start used ${made.join(",") || "nothing"}`);
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+}
 
 const liveSwitch = createRecognitionWorld({ stickyFirstInstance: true });
 const liveSpeech = harness(liveSwitch, true);
@@ -540,6 +674,37 @@ assert(
 );
 assert(heardJoin.localDrafts.includes("Welcome brothers"), "interim stayed local before the final");
 assert(heardJoin.errors.length === 0, `heard no-speech without onend raised ${heardJoin.errors.join(" | ")}`);
+
+const heardSpanish = createRecognitionWorld({ stickyFirstInstance: true });
+const heardSpanishJoin = joinPublishHarness(heardSpanish);
+heardSpanishJoin.speech.setLang(speechLocale("es"), true);
+heardSpanishJoin.speech.start();
+await flush();
+assert(heardSpanish.instances.length === 1, "Spanish no-speech uses the primed recognizer");
+assert(heardSpanish.active()[0]?.engineLang === "es-ES", "Spanish no-speech session is es-ES");
+assert(heardSpanish.active()[0].emitPartial("es-ES", "Buenas noches a todos") === "interim", "Spanish draft before no-speech");
+assert(heardSpanish.active()[0].noSpeech({ end: false }) === "no-speech", "Spanish no-speech can skip onend");
+assert(
+  heardSpanishJoin.published.join("|") === "Buenas noches a todos",
+  `Spanish no-speech still publishes: ${heardSpanishJoin.published.join("|")}`,
+);
+assert(heardSpanishJoin.errors.length === 0, `Spanish no-speech raised ${heardSpanishJoin.errors.join(" | ")}`);
+
+const heardPortuguese = createRecognitionWorld({ stickyFirstInstance: true });
+const heardPortugueseJoin = joinPublishHarness(heardPortuguese);
+heardPortugueseJoin.speech.setLang(speechLocale("pt"), true);
+heardPortugueseJoin.speech.start();
+await flush();
+assert(heardPortuguese.active()[0]?.engineLang === "pt-BR", "Portuguese no-speech session is pt-BR");
+assert(heardPortuguese.active()[0].emitPartial("pt-BR", "Boa noite a todos") === "interim", "Portuguese draft before no-speech");
+assert(heardPortuguese.active()[0].noSpeech({ end: true }) === "no-speech", "Portuguese no-speech then onend");
+await flush();
+assert(
+  heardPortugueseJoin.published.join("|") === "Boa noite a todos",
+  `Portuguese no-speech publishes one final: ${heardPortugueseJoin.published.join("|")}`,
+);
+assert(heardPortuguese.instances.length === 1, "Portuguese no-speech does not build a second recognizer");
+assert(heardPortugueseJoin.errors.length === 0, `Portuguese no-speech raised ${heardPortugueseJoin.errors.join(" | ")}`);
 
 const heardEnded = createRecognitionWorld({ stickyFirstInstance: true });
 const heardEndJoin = joinPublishHarness(heardEnded);
