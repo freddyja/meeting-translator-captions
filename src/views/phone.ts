@@ -6,7 +6,7 @@ import { bindOfflineModeToggle, isOfflineMeeting } from "../offline-mode";
 import { tvQrSvg } from "../qr";
 import { connectRoom, type RoomConnection } from "../realtime/client";
 import { goto, joinUrl, tvUrl } from "../router";
-import { createWebSpeechProvider, isSpeechFallbackMessage } from "../stt/web-speech";
+import { createWebSpeechProvider, isNonFatalSpeechNote, isSpeechFallbackMessage } from "../stt/web-speech";
 import { createTranslator, detectLang, translateAll } from "../translate";
 import { paintCaptionBoard } from "./caption-board";
 import {
@@ -411,6 +411,11 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     setState({ ...state, lines });
   }
 
+  let publishQueue: Promise<void> = Promise.resolve();
+  const queuePublish = (text: string, coalesce = true) => {
+    publishQueue = publishQueue.then(() => publishFinal(text, coalesce)).catch(() => undefined);
+  };
+
   const releaseWake = () => {
     void wakeLock?.release();
     wakeLock = null;
@@ -432,22 +437,25 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
   };
 
   const onMic = () => {
-    void (async () => {
-      error = "";
-      if (isFloorHolder(floor, peerId)) {
-        stopLocalMic();
-        pendingFinal = "";
+    error = "";
+    if (isFloorHolder(floor, peerId)) {
+      stopLocalMic();
+      pendingFinal = "";
+      void (async () => {
         await conn?.releaseFloor();
         setState({ ...state, listening: false });
-        return;
-      }
-      if (floorHeldByOther(floor, peerId)) {
-        error = someoneElseSpeaking(floor);
-        renderDynamic();
-        return;
-      }
-      speech.setLang(speechLocale(state.sourceLang));
-      speech.start();
+      })();
+      return;
+    }
+    if (floorHeldByOther(floor, peerId)) {
+      error = someoneElseSpeaking(floor);
+      renderDynamic();
+      return;
+    }
+    // Start on the click stack. iOS rejects recognition.start() after an await.
+    speech.setLang(speechLocale(state.sourceLang));
+    speech.start();
+    void (async () => {
       const ok = (await conn?.claimFloor(HOST_NAME)) ?? false;
       if (!ok) {
         speech.stop();
@@ -456,7 +464,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
         renderDynamic();
         return;
       }
-      if (isSpeechFallbackMessage(error)) {
+      if (isSpeechFallbackMessage(error) && !isNonFatalSpeechNote(error)) {
         speech.stop();
         releaseWake();
         typeForm.hidden = false;
@@ -468,16 +476,16 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
       setState({ ...state, listening: true });
       const queued = pendingFinal.trim();
       pendingFinal = "";
-      if (queued) void publishFinal(queued);
+      if (queued) queuePublish(queued);
     })();
   };
 
   const onReclaim = () => {
+    error = "";
+    // start() in this tap. iOS rejects recognition.start() after an await.
+    speech.setLang(speechLocale(state.sourceLang));
+    speech.start();
     void (async () => {
-      error = "";
-      // start() in this tap. iOS rejects recognition.start() after an await.
-      speech.setLang(speechLocale(state.sourceLang));
-      speech.start();
       const freed = (await conn?.forceRelease()) ?? false;
       if (!freed) {
         speech.stop();
@@ -492,7 +500,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
         renderDynamic();
         return;
       }
-      if (isSpeechFallbackMessage(error)) {
+      if (isSpeechFallbackMessage(error) && !isNonFatalSpeechNote(error)) {
         speech.stop();
         typeForm.hidden = false;
         setState({ ...state, listening: false });
@@ -507,13 +515,13 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     if (document.visibilityState === "visible" && state.listening) void requestWake();
   };
 
-  // Same final-only push as Join. iPhone utterances promoted in web-speech land here.
+  // Same final-only push as Join. iPhone no-speech-after-words still lands here as one final.
   speech.onResult = (result) => {
     error = "";
     if (result.isFinal) {
       if (isFloorHolder(floor, peerId)) {
         pendingFinal = "";
-        void publishFinal(result.text);
+        queuePublish(result.text);
       } else if (!floorHeldByOther(floor, peerId)) {
         pendingFinal = result.text;
       }
@@ -524,6 +532,11 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
   };
   speech.onError = (message) => {
     error = message;
+    if (isNonFatalSpeechNote(message)) {
+      typeForm.hidden = false;
+      renderDynamic();
+      return;
+    }
     if (isSpeechFallbackMessage(message)) {
       speech.stop();
       releaseWake();
@@ -749,7 +762,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
         }
       }
       input.value = "";
-      void publishFinal(text, false);
+      queuePublish(text, false);
     })();
   };
 
