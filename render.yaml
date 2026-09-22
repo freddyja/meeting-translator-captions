@@ -1,0 +1,21 @@
+# Render Blueprint — a Web Service (not a Static Site) so the WebSocket relay
+# stays in the same Node process as the PWA. Keep instance count at 1.
+# Free instances sleep; open the URL a minute before the meeting.
+
+services:
+  - type: web
+    name: meeting-translator-captions
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      # Recommended: DeepL Free in the Render dashboard (never commit a key):
+      # TRANSLATE_PROVIDER=deepl
+      # DEEPL_API_KEY=...
+      # Without a DeepL key the app uses MyMemory (no key).

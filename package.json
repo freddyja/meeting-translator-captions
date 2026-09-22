@@ -1,0 +1,30 @@
+{
+  "name": "meeting-translator-captions",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "dev:http": "MT_HTTPS=0 vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "start": "node --experimental-strip-types server/index.ts",
+    "verify:prod": "node --experimental-strip-types scripts/verify-route.mjs && node scripts/verify-production.mjs",
+    "verify:translate": "node --experimental-strip-types scripts/verify-translate.mjs",
+    "icons": "node scripts/generate-icons.mjs"
+  },
+  "engines": {
+    "node": ">=22.6"
+  },
+  "dependencies": {
+    "uqr": "^0.1.3",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-basic-ssl": "^2.1.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5"
+  }
+}
