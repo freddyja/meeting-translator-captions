@@ -892,6 +892,11 @@ body:has(.join-screen) {
   .join-dock .watch-scope {
     display: none;
   }
+
+  .join-screen .tv-board[data-count="1"] .line,
+  .join-screen .tv-board[data-count="1"] .empty-caption {
+    font-size: clamp(1.05rem, 5vh, 1.65rem);
+  }
 }
 
 .mic-chrome-hint {
