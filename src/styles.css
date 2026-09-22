@@ -344,6 +344,42 @@ button, input, select, textarea {
   font-style: italic;
 }
 
+.line-speaker {
+  display: block;
+  max-width: 100%;
+  margin: 0 0 0.16em;
+  overflow: hidden;
+  color: var(--gold);
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.015em;
+  line-height: 1.05;
+  font-size: 0.78em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line.faded .line-speaker {
+  font-weight: 600;
+  opacity: 0.82;
+}
+
+.line-text {
+  display: block;
+}
+
+.line.speaker-live {
+  font-style: normal;
+  margin-top: 0.2em;
+}
+
+.line.interim .line-speaker,
+.line.speaker-live .line-speaker {
+  color: var(--gold);
+  font-style: normal;
+  opacity: 1;
+}
+
 .tv-board[data-count="1"] .line {
   font-size: clamp(2.7rem, 7vw, 8rem);
 }
@@ -354,6 +390,17 @@ button, input, select, textarea {
 
 .tv-board[data-count="3"] .line {
   font-size: clamp(1.35rem, 2.4vw, 2.7rem);
+}
+
+/* TV / Smart View: speaker names stay large enough to read from across the room. */
+.tv-screen .line-speaker,
+.smart-view-captions .line-speaker {
+  font-size: max(0.62em, clamp(1.05rem, 1.8vw, 2.15rem));
+}
+
+.tv-screen .tv-board[data-count="1"] .line-speaker,
+.smart-view-captions .tv-board[data-count="1"] .line-speaker {
+  font-size: max(0.48em, clamp(1.45rem, 2.8vw, 3.4rem));
 }
 
 .empty-caption {
@@ -782,6 +829,12 @@ button, input, select, textarea {
     line-height: 1.15;
   }
 
+  .join-screen .line-speaker,
+  .join-screen .tv-board[data-count="2"] .line-speaker,
+  .join-screen .tv-board[data-count="3"] .line-speaker {
+    font-size: max(0.8em, 0.92rem);
+  }
+
   .join-dock {
     gap: 0.35rem;
     padding-top: 0.4rem;
@@ -1003,6 +1056,14 @@ button, input, select, textarea {
   line-height: 1.12;
 }
 
+.join-screen .line-speaker {
+  font-size: max(0.78em, 0.95rem);
+}
+
+.join-screen .tv-board[data-count="1"] .line-speaker {
+  font-size: max(0.62em, clamp(1.15rem, 3.4vw, 2rem));
+}
+
 @media (max-height: 520px) {
   .join-prefs {
     gap: 0.2rem;
@@ -1179,6 +1240,10 @@ button, input, select, textarea {
 
 .phone-live-board .line, .phone-live-board .empty-caption {
   font-size: clamp(1.05rem, 2.8vw, 1.5rem);
+}
+
+.phone-live-board .line-speaker {
+  font-size: max(0.78em, 0.95rem);
 }
 
 .row-actions {
@@ -1995,6 +2060,10 @@ button, input, select, textarea {
   .phone-screen:not(.is-smart-view) .phone-live-board .line,
   .phone-screen:not(.is-smart-view) .phone-live-board .empty-caption {
     font-size: clamp(0.85rem, 2.2vw, 1.25rem);
+  }
+
+  .phone-screen:not(.is-smart-view) .phone-live-board .line-speaker {
+    font-size: 0.82em;
   }
 
   .phone-screen:not(.is-smart-view) .phone-side {
