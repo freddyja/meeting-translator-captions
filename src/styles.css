@@ -475,18 +475,39 @@ button, input, select, textarea {
 }
 
 .join-dock .chips {
-  margin-bottom: 0.35rem;
+  margin-bottom: 0;
+}
+
+/* .screen sets min-height: 100dvh, which on iPhone Safari is taller than the
+   visible area while the toolbars are up. Cap Join at the small viewport so
+   the spoken-language dock stays on screen instead of under the toolbar. */
+html:has(.join-screen),
+body:has(.join-screen) {
+  height: 100svh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+#app:has(.join-screen) {
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .join-screen {
   width: 100%;
   max-width: 52rem;
   margin: 0 auto;
+  min-height: 0;
   height: 100dvh;
   height: 100svh;
+  height: 100%;
+  max-height: 100svh;
+  max-height: 100dvh;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.45rem;
   overflow: hidden;
   overscroll-behavior: contain;
   padding:
@@ -497,6 +518,7 @@ button, input, select, textarea {
 }
 
 .join-screen .tv-top {
+  flex: none;
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 0.55rem;
@@ -506,19 +528,40 @@ button, input, select, textarea {
   justify-content: flex-start;
 }
 
+.join-screen .floor-banner {
+  flex: none;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
 .join-main {
-  flex: 1 1 auto;
+  flex: 1 1 0%;
   min-height: 0;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.4rem;
 }
 
 .join-screen .tv-board {
   flex: 1 1 auto;
-  min-height: 8rem;
+  min-height: 0;
+  height: 100%;
+  align-content: stretch;
+  grid-auto-rows: minmax(0, 1fr);
+}
+
+.join-screen .window {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.join-screen .lines {
+  min-height: 0;
+  overflow: hidden;
 }
 
 .join-screen .tv-board[data-count="2"], .join-screen .tv-board[data-count="3"] {
@@ -527,57 +570,249 @@ button, input, select, textarea {
 
 .join-screen[data-orientation="landscape"] .tv-board[data-count="2"] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .join-dock {
-  flex: none;
+  flex: 0 1 auto;
+  min-height: 0;
   position: relative;
   z-index: 4;
-  display: grid;
-  gap: 0.55rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.45rem;
   margin-top: 0;
-  padding: 0.55rem 0 max(0.85rem, env(safe-area-inset-bottom));
+  overflow: hidden;
+  padding: 0.45rem 0 max(0.7rem, env(safe-area-inset-bottom));
   background: var(--bg);
   border-top: 1px solid var(--line);
 }
 
-.join-actions .smart-view-mic, .join-actions .smart-view-captions-only {
-  min-height: 48px;
-  min-width: 48px;
-  padding: 0.55rem 1rem;
+.join-dock > * {
+  flex: 0 0 auto;
 }
 
+/* Tip, name, and footer yield first so spoken language + mic/Type stay visible. */
+.join-dock .smart-view-tip,
+.join-dock .join-name,
+.join-dock .credit-footer,
+.join-dock .hint {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.join-dock .hint {
+  margin: 0;
+}
+
+.join-dock .hint:empty {
+  display: none;
+}
+
+.join-dock .credit-footer {
+  margin-top: 0;
+  padding-top: 0.15rem;
+}
+
+.join-dock .control-label {
+  margin-bottom: 0.35rem;
+}
+
+.join-actions .smart-view-mic, .join-actions .smart-view-captions-only {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.45rem 1rem;
+}
+
+.join-type,
 .join-type.is-primary {
-  margin-top: 0.15rem;
+  margin-top: 0;
 }
 
 .join-type.is-primary .primary {
-  min-height: 52px;
+  min-height: 48px;
 }
 
-@media (max-width: 430px) {
-.join-dock {
+@media (max-width: 900px) {
+.join-screen {
+    gap: 0.35rem;
+    padding:
+      max(0.4rem, env(safe-area-inset-top))
+      max(0.7rem, env(safe-area-inset-right))
+      0
+      max(0.7rem, env(safe-area-inset-left));
+  }
+
+  .join-screen .tv-top {
+    flex-direction: row;
+    align-items: center;
     gap: 0.4rem;
+  }
+
+  .join-screen .brand-mark {
+    width: 32px;
+    height: 32px;
+  }
+
+  .join-screen .brand-text h1 {
+    font-size: 1.05rem;
+  }
+
+  .join-screen .brand-text p {
+    display: none;
+  }
+
+  .join-screen .tv-meta {
+    flex: 1;
+    justify-content: flex-end;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+  }
+
+  .join-screen .floor-banner {
+    font-size: 0.78rem;
+  }
+
+  .join-screen .window {
+    padding: 0.4rem 0.65rem 0.45rem;
+    border-radius: 14px;
+    box-shadow: none;
+  }
+
+  .join-screen .window-label {
+    margin-bottom: 0.12rem;
+    font-size: 0.68rem;
+  }
+
+  .join-screen .tv-board .line,
+  .join-screen .tv-board .empty-caption {
+    font-size: clamp(0.95rem, 4.2vw, 1.35rem);
+    line-height: 1.15;
+  }
+
+  .join-dock {
+    gap: 0.35rem;
     padding-top: 0.4rem;
+    padding-bottom: max(0.45rem, env(safe-area-inset-bottom));
   }
 
   .join-screen .smart-view-tip {
-    font-size: 0.78rem;
-    line-height: 1.3;
+    font-size: 0.75rem;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .join-name {
+    gap: 0.15rem;
+  }
+
+  .join-name input {
+    min-height: 40px;
+    padding: 0.4rem 0.7rem;
+  }
+
+  .join-screen .join-type input,
+  .join-screen .join-type .primary {
+    min-height: 44px;
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+  }
+
+  .join-dock .chip {
+    min-height: 40px;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.92rem;
   }
 
   .join-screen .chips {
-    gap: 0.4rem;
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+  }
+
+  .join-dock .credit-footer {
+    font-size: 0.62rem;
+    padding-top: 0;
   }
 }
 
 @media (min-width: 700px) {
 .join-screen .tv-board[data-count="2"], .join-screen[data-orientation="landscape"] .tv-board[data-count="2"] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .join-screen .tv-board[data-count="3"], .join-screen[data-orientation="landscape"] .tv-board[data-count="3"] {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr);
+  }
+}
+
+/* Short portrait (iPhone SE / Safari toolbars): drop the hint and footer so
+   each caption pane keeps a readable line, and the talk controls stay put. */
+@media (max-height: 620px) {
+.join-screen .smart-view-tip,
+  .join-dock .credit-footer {
+    display: none;
+  }
+
+  .join-screen .floor-banner {
+    -webkit-line-clamp: 1;
+    font-size: 0.72rem;
+    min-height: 0;
+  }
+
+  .join-screen .tv-top {
+    gap: 0.3rem;
+  }
+
+  .join-dock {
+    gap: 0.28rem;
+    padding-top: 0.3rem;
+    padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+  }
+
+  .join-name {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .join-dock .control-label {
+    margin-bottom: 0.2rem;
+  }
+
+  .join-screen .window {
+    padding: 0.28rem 0.5rem 0.32rem;
+  }
+
+  .join-screen .window-label {
+    margin-bottom: 0;
+    font-size: 0.62rem;
+  }
+}
+
+/* iPhone sideways: panes in one row, talk controls on screen. */
+@media (max-height: 520px) {
+.join-screen > .floor-banner,
+  .join-dock .credit-footer,
+  .join-screen .smart-view-tip {
+    display: none;
+  }
+
+  .join-screen .window {
+    padding: 0.3rem 0.45rem 0.35rem;
+  }
+
+  .join-name input,
+  .join-dock .chip,
+  .join-actions .smart-view-mic,
+  .join-screen .join-type input,
+  .join-screen .join-type .primary {
+    min-height: 40px;
   }
 }
 
