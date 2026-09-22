@@ -453,7 +453,8 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
       return;
     }
     // Start on the click stack. iOS rejects recognition.start() after an await.
-    speech.setLang(speechLocale(state.sourceLang));
+    // Prime es-ES / pt-BR on the reused recognizer before start().
+    speech.setLang(speechLocale(state.sourceLang), true);
     speech.start();
     void (async () => {
       const ok = (await conn?.claimFloor(HOST_NAME)) ?? false;
@@ -483,7 +484,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
   const onReclaim = () => {
     error = "";
     // start() in this tap. iOS rejects recognition.start() after an await.
-    speech.setLang(speechLocale(state.sourceLang));
+    speech.setLang(speechLocale(state.sourceLang), true);
     speech.start();
     void (async () => {
       const freed = (await conn?.forceRelease()) ?? false;
@@ -559,8 +560,8 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     sourceTouched = true;
     if (sourceLang !== state.sourceLang) liveInterim = "";
     // While listening, setLang retargets the recognizer in this tap.
-    // Chrome rebuilds it. iOS reuses the original object so the locale sticks.
-    speech.setLang(speechLocale(sourceLang));
+    // Chrome rebuilds it. iOS reuses the original object and only changes lang.
+    speech.setLang(speechLocale(sourceLang), true);
     setState({ ...state, sourceLang });
   };
 

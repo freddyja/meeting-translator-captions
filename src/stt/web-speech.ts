@@ -9,7 +9,12 @@ export type SpeechProvider = {
   readonly supported: boolean;
   start(): void;
   stop(): void;
-  setLang(locale: string): void;
+  /**
+   * `prime` creates the single iOS recognizer and writes `lang` now.
+   * An idle call that only stores a string leaves that object, and `<html lang>`,
+   * on English until start — Safari then does not hear es-ES or pt-BR.
+   */
+  setLang(locale: string, prime?: boolean): void;
   onResult: ((result: SpeechResult) => void) | null;
   onError: ((message: string) => void) | null;
 };
@@ -99,17 +104,22 @@ function alreadyStarted(err: unknown): boolean {
   return name === "InvalidStateError" || /already started|invalidstate/i.test(`${name} ${message}`);
 }
 
-function getRecognitionCtor(): RecognitionCtor | null {
-  const w = window as Window & {
-    SpeechRecognition?: RecognitionCtor;
-    webkitSpeechRecognition?: RecognitionCtor;
-  };
+function getRecognitionCtor(apple: boolean): RecognitionCtor | null {
+  const w = globalThis.window as
+    | (Window & {
+        SpeechRecognition?: RecognitionCtor;
+        webkitSpeechRecognition?: RecognitionCtor;
+      })
+    | undefined;
+  if (!w) return null;
+  // iPhone keeps one webkitSpeechRecognition. Prefer that constructor when both exist.
+  if (apple) return w.webkitSpeechRecognition ?? w.SpeechRecognition ?? null;
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
 export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechProvider {
   const apple = options.appleMobile ?? isAppleMobile();
-  const Ctor = options.recognitionCtor === undefined ? getRecognitionCtor() : options.recognitionCtor;
+  const Ctor = options.recognitionCtor === undefined ? getRecognitionCtor(apple) : options.recognitionCtor;
   const scheduleRestart =
     options.scheduleRestart ??
     ((run: () => void) => {
@@ -140,11 +150,20 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
     supported: Boolean(Ctor),
     onResult: null,
     onError: null,
-    setLang(next) {
+    setLang(next, prime = false) {
       const localeNext = next.trim() || locale;
-      if (localeNext === locale) return;
+      const changed = localeNext !== locale;
       locale = localeNext;
-      if (!wantListening) return;
+      // WebKit reads the document language when SpeechRecognition.lang is still empty,
+      // and ignores a later es-ES / pt-BR if the first object was born under English.
+      if (apple) {
+        syncDocumentLang();
+        if (Ctor && (prime || rec)) {
+          if (!rec) rec = new Ctor();
+          rec.lang = locale;
+        }
+      }
+      if (!changed || !wantListening) return;
       // Chrome ignores lang on a live recognizer, so rebuild in this tap.
       // iOS ignores lang on every object after the first. Keep that object.
       if (apple) reviveApple();
@@ -174,6 +193,13 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
       detachAndAbort(mine);
     },
   };
+
+  function syncDocumentLang() {
+    if (!apple) return;
+    const root = globalThis.document?.documentElement;
+    if (!root || root.lang === locale) return;
+    root.lang = locale;
+  }
 
   function cancelCommit() {
     commitToken += 1;
@@ -211,7 +237,9 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
     if (!Ctor) return;
     const gen = ++generation;
     if (apple) {
+      syncDocumentLang();
       if (!rec) rec = new Ctor();
+      rec.lang = locale;
       kick(rec, gen, surfaceStartFailure);
       return;
     }

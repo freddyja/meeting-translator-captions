@@ -310,7 +310,8 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     }
     // iOS Safari only runs SpeechRecognition.start() on the click stack.
     // An await (floor claim) before start() makes the mic a silent no-op.
-    speech.setLang(speechLocale(sourceLang));
+    // Prime es-ES / pt-BR on the one iOS recognizer before that start().
+    speech.setLang(speechLocale(sourceLang), true);
     speech.start();
     void (async () => {
       const ok = (await conn?.claimFloor(displayName)) ?? false;
@@ -448,7 +449,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     if (!isLang(next)) return;
     sourceLang = next;
     writeSpokenLang(sourceLang);
-    speech.setLang(speechLocale(sourceLang));
+    speech.setLang(speechLocale(sourceLang), true);
     if (isFloorHolder(floor, peerId)) {
       state = { ...state, sourceLang };
       push();
@@ -532,7 +533,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     if (!btn?.dataset.setupLang || !isLang(btn.dataset.setupLang)) return;
     sourceLang = btn.dataset.setupLang;
     writeSpokenLang(sourceLang);
-    speech.setLang(speechLocale(sourceLang));
+    speech.setLang(speechLocale(sourceLang), true);
     paintSetup();
   };
 
@@ -558,7 +559,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     onSetupName();
     writeSpokenLang(sourceLang);
     writeWatchLang(watchLang);
-    speech.setLang(speechLocale(sourceLang));
+    speech.setLang(speechLocale(sourceLang), true);
     nameInput.value = displayName;
     entered = true;
     setupEl.hidden = true;
