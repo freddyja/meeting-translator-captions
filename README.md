@@ -9,7 +9,7 @@ Live multilingual meeting captions (English / Spanish / Portuguese). A phone cap
 [Meeting runbook](docs/MEETING_RUNBOOK.md)
 
 - **Host phone:** Chrome on Android (or the installed PWA) creates the room, picks spoken language **EN / ES / PT**, and owns **Send to TV**, **Smart View mode**, and **Join on phones**. The host screen shows the same three caption panes as the TV, not an English-only preview.
-- **Guest phones (Android or iPhone):** scan **Join on phones** (`/?view=join&room=ABCD`). Same caption panes. One speaker at a time. The host can **Reclaim mic**. Chrome on Android is best for live speech. iPhone can always watch and can **Type + Send** if Web Speech fails. Safari keeps the first `webkitSpeechRecognition` and only changes `lang` (`es-ES` / `pt-BR`). Android and desktop may build a new recognizer.
+- **Guest phones (Android or iPhone):** scan **Join on phones** (`/?view=join&room=ABCD`). Before the caption board they answer **What language are you speaking?** and **What language do you want to watch?** (one language or all three), optionally a name, then **Join**. Spoken is for the mic and Type + Send. Watch is only the captions on that phone. They can change both after they are in the room. One speaker at a time. The host can **Reclaim mic**. Chrome on Android is best for live speech. iPhone can always watch and can **Type + Send** if Web Speech fails. Safari keeps the first `webkitSpeechRecognition` and only changes `lang` (`es-ES` / `pt-BR`). Android and desktop may build a new recognizer.
 - **TV browser:** **Send to TV** shows a QR and link (`/?view=tv&room=ABCD`) so the TV’s own browser opens the room. Default layout is combined **EN | ES | PT**. Optional one-language-per-monitor links do not change the other screens. The TV shows **final** captions only.
 - **Smart View mode:** the phone itself switches to the large caption layout while the mic keeps running. Then you open system Smart View so the TV mirrors that screen. This app does not call the Presentation API or launch a cast.
 - **One Node process:** HTTP, the `/caption-ws` room relay, and `POST /api/translate` stay together. Phone and TV must hit the same process.
@@ -18,7 +18,7 @@ Live multilingual meeting captions (English / Spanish / Portuguese). A phone cap
 ## Create a room, join, and show the TV
 
 1. On the host phone, open the public HTTPS URL and tap **Create room on this phone**.
-2. Tap **Join on phones** and let everyone scan the QR (Android Chrome or iPhone Safari). Each person picks a spoken language. Only one mic is live; the host can reclaim it.
+2. Tap **Join on phones** and let everyone scan the QR (Android Chrome or iPhone Safari). Each person answers spoken language and watch language, then taps **Join**. Only one mic is live; the host can reclaim it.
 3. Tap **Send to TV**. On the TV browser, scan that QR or paste the link. You should see **EN | ES | PT**.
 4. If the TV can only mirror the phone, tap **Smart View mode**, then open system Smart View → My TV. Exit the mode to get the controls back. The mic does not stop when you enter or leave it.
 5. Optional: from **Send to TV**, copy the EN, ES, and PT links onto separate monitors. Each window is full-screen for that language and still uses the same room.

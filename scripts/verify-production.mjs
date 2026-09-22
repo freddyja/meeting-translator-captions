@@ -146,6 +146,10 @@ async function main() {
   assert(appJs.includes("Safari rejected"), "rejected speech locale is named");
   assert(appJs.includes("phone-live-board"), "host phone shows EN ES PT caption panes");
   assert(appJs.includes("join-screen"), "guest join is a phone layout, not Fold-only");
+  assert(appJs.includes("data-join-setup"), "join questions come before the caption board");
+  assert(appJs.includes("What language are you speaking?"), "join asks spoken language first");
+  assert(appJs.includes("What language do you want to watch?"), "join asks watch language first");
+  assert(appJs.includes("data-join-continue"), "join setup has one continue button");
   assert(!appJs.includes("join-dock-pin"), "join does not pin the caption board over the dock");
   assert(!appJs.includes("--join-vvh"), "join does not lock to a measured viewport height");
   assert(appJs.includes("Offline / Local meeting"), "offline / local meeting toggle");
@@ -174,6 +178,11 @@ async function main() {
   );
   assert(appCss.includes("smart-view-source-chip"), "Smart View spoken language chip style");
   assert(appCss.includes("join-screen"), "guest join screen class");
+  assert(appCss.includes("join-setup"), "join setup screen is styled");
+  assert(
+    !/phone-screen:not\(\.is-smart-view\)\{[^}]*overflow:\s*hidden/.test(appCss.replace(/\s+/g, "")),
+    "host phone screen does not lock the viewport",
+  );
   assert(!appCss.includes("join-dock-pin"), "join dock is not a pinned layer");
   assert(!appCss.includes("--join-vvh"), "join is not locked to a visual-viewport variable");
   assert(!/position:\s*fixed/.test(appCss), "join does not use a fixed lock overlay");
