@@ -87,7 +87,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
           <span>Your name</span>
           <input data-name maxlength="24" autocomplete="name" placeholder="Guest" enterkeyhint="done" />
         </label>
-        <div>
+        <div class="join-spoken">
           <p class="control-label">Spoken language</p>
           <div class="chips" data-source></div>
         </div>
