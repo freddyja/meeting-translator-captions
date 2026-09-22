@@ -143,6 +143,7 @@ async function main() {
     appJs.includes("Type a caption — Send still reaches every phone and the TV."),
     "iPhone mic failure tells you to type",
   );
+  assert(appJs.includes("(no-speech)"), "iPhone no-speech is shown instead of swallowed");
   assert(appJs.includes("Safari rejected"), "rejected speech locale is named");
   assert(appJs.includes("phone-live-board"), "host phone shows EN ES PT caption panes");
   assert(appJs.includes("join-screen"), "guest join is a phone layout, not Fold-only");

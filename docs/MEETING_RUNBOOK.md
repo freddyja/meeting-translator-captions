@@ -20,7 +20,7 @@ Use this on the day of the meeting. The public URL is the Render service for **t
 2. Guests scan the QR or open the copied link (`/?view=join&room=ABCD`) in Chrome on Android or Safari / Chrome on iPhone. No app-store install.
 3. Each phone asks what language they are speaking and what language they want to watch (English, Español, Português, or all three), then **Join**. Watch changes only that phone. Spoken is used when they talk or type. They can change both from the caption screen.
 4. One speaker at a time. If someone else holds the mic, the phone says **Someone else is speaking**. The host can tap **Reclaim mic**.
-5. On iPhone, **Type a caption** and **Send** is always available. Start speech recognition inside the same tap that claims the floor. Safari may show the phrase only on that phone and withhold a final result — the app still sends it when the utterance ends, so the other phones and the TV get one finished line. If the mic never starts, or Safari rejects a locale, type the caption instead.
+5. On iPhone, **Type a caption** and **Send** is always available. Start speech recognition inside the same tap that claims the floor. Safari may show the phrase only on that phone, withhold a final result, or end it as no-speech — the app still sends the heard words, so the other phones and the TV get one finished line. Silence with no words stays on screen and is not sent. If the mic never starts, or Safari rejects a locale, type the caption instead.
 
 ## Send to TV
 

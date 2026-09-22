@@ -24,6 +24,8 @@ type SpeechRecognitionLike = {
   start(): void;
   stop(): void;
   abort(): void;
+  onstart: (() => void) | null;
+  onaudiostart: (() => void) | null;
   onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
   onerror: ((event: { error: string }) => void) | null;
   onend: (() => void) | null;
@@ -33,7 +35,7 @@ type SpeechRecognitionResultEvent = {
   resultIndex: number;
   results: ArrayLike<{
     isFinal: boolean;
-    0: { transcript: string };
+    0?: { transcript?: string };
   }>;
 };
 
@@ -49,13 +51,21 @@ export type WebSpeechOptions = {
    * Return a timeout id so it can be cancelled. Tests invoke the callback themselves.
    */
   scheduleCommit?: (run: () => void) => number | void;
+  /** Silent start (no onstart / result / end). Tests run this immediately. */
+  scheduleWatchdog?: (run: () => void) => void;
 };
 
 /** How long an iPhone interim must sit unchanged before it is committed without `onend`. */
 export const APPLE_UTTERANCE_COMMIT_MS = 1200;
 
+/** How long to wait for Safari to acknowledge `start()` before telling the speaker to type. */
+const APPLE_START_WATCHDOG_MS = 4000;
+
 const IPHONE_TYPE =
   "iPhone couldn't capture speech. Type a caption — Send still reaches every phone and the TV.";
+
+const IPHONE_NO_SPEECH =
+  "iPhone heard nothing (no-speech). Type a caption — Send still reaches every phone and the TV.";
 
 /** Shown when Safari fires `language-not-supported` for the locale we asked for. */
 export function localeRejectedMessage(locale: string, code: string): string {
@@ -69,6 +79,17 @@ export function isSpeechFallbackMessage(message: string): boolean {
     message.includes("no Web Speech") ||
     message.includes("microphone stopped")
   );
+}
+
+/** A pause with no words. The mic stays up so the next phrase can still publish. */
+export function isNonFatalSpeechNote(message: string): boolean {
+  return message.includes("(no-speech)");
+}
+
+function alternativeTranscript(chunk: SpeechRecognitionResultEvent["results"][number]): string {
+  const alternative = chunk[0];
+  if (!alternative || typeof alternative.transcript !== "string") return "";
+  return alternative.transcript.trim();
 }
 
 function alreadyStarted(err: unknown): boolean {
@@ -92,29 +113,28 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
   const scheduleRestart =
     options.scheduleRestart ??
     ((run: () => void) => {
-      window.setTimeout(run, apple ? 200 : 120);
+      globalThis.setTimeout(run, apple ? 200 : 120);
     });
   const scheduleCommit =
     options.scheduleCommit ??
-    ((run: () => void) => window.setTimeout(run, APPLE_UTTERANCE_COMMIT_MS));
+    ((run: () => void) => globalThis.setTimeout(run, APPLE_UTTERANCE_COMMIT_MS));
+  const scheduleWatchdog =
+    options.scheduleWatchdog ??
+    ((run: () => void) => {
+      globalThis.setTimeout(run, APPLE_START_WATCHDOG_MS);
+    });
 
   let rec: SpeechRecognitionLike | null = null;
   let locale = "en-US";
   let wantListening = false;
   let generation = 0;
-  let commitTimer = 0;
-
-  const clearCommit = () => {
-    if (!commitTimer) return;
-    window.clearTimeout(commitTimer);
-    commitTimer = 0;
-  };
-
-  const queueCommit = (run: () => void) => {
-    clearCommit();
-    const id = scheduleCommit(run);
-    if (typeof id === "number") commitTimer = id;
-  };
+  let commitToken = 0;
+  let watchdogToken = 0;
+  // Hoisted so no-speech can publish even if Safari never reaches onend.
+  let draft = "";
+  let lastCommitted = "";
+  let aborting = false;
+  let sessionAlive = false;
 
   const provider: SpeechProvider = {
     supported: Boolean(Ctor),
@@ -141,7 +161,12 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
     stop() {
       wantListening = false;
       generation += 1;
-      clearCommit();
+      cancelCommit();
+      watchdogToken += 1;
+      draft = "";
+      lastCommitted = "";
+      aborting = false;
+      sessionAlive = false;
       const mine = rec;
       // Drop the desktop object. On iOS the next Start must reuse it or the
       // engine keeps the first session's language (English).
@@ -150,8 +175,28 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
     },
   };
 
+  function cancelCommit() {
+    commitToken += 1;
+  }
+
+  function commitDraft(): boolean {
+    const text = draft.trim();
+    draft = "";
+    cancelCommit();
+    if (!text || text === lastCommitted) return false;
+    lastCommitted = text;
+    provider.onResult?.({ text, isFinal: true });
+    return true;
+  }
+
+  function markAlive() {
+    sessionAlive = true;
+  }
+
   function detachAndAbort(mine: SpeechRecognitionLike | null) {
     if (!mine) return;
+    mine.onstart = null;
+    mine.onaudiostart = null;
     mine.onresult = null;
     mine.onerror = null;
     mine.onend = null;
@@ -172,6 +217,8 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
     }
     const previous = rec;
     if (previous) {
+      previous.onstart = null;
+      previous.onaudiostart = null;
       previous.onresult = null;
       previous.onerror = null;
       previous.onend = null;
@@ -188,6 +235,8 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
   /** Point the original iOS recognizer at the new locale and start it in this tap. */
   function reviveApple() {
     if (!rec || !Ctor) return;
+    // Publish whatever Safari already heard before the locale changes.
+    commitDraft();
     const gen = ++generation;
     const mine = rec;
     // Idle (including the gap after a one-shot onend): start() in this tap.
@@ -205,6 +254,7 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
     try {
       mine.lang = locale;
       mine.start();
+      if (apple) armWatchdog(mine, gen);
       return true;
     } catch (err) {
       // Live session: caller aborts and onend starts the new locale.
@@ -222,81 +272,125 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
     }
   }
 
+  function armWatchdog(mine: SpeechRecognitionLike, gen: number) {
+    const token = ++watchdogToken;
+    scheduleWatchdog(() => {
+      if (token !== watchdogToken || gen !== generation || !wantListening || sessionAlive) return;
+      wantListening = false;
+      cancelCommit();
+      draft = "";
+      try {
+        mine.abort();
+      } catch {
+        /* never started */
+      }
+      provider.onError?.(IPHONE_TYPE);
+    });
+  }
+
+  function scheduleDraftCommit(gen: number) {
+    if (!apple) return;
+    const token = ++commitToken;
+    scheduleCommit(() => {
+      if (token !== commitToken || gen !== generation || !wantListening) return;
+      commitDraft();
+    });
+  }
+
+  function restart(mine: SpeechRecognitionLike, gen: number) {
+    scheduleRestart(() => {
+      if (gen !== generation || !wantListening) return;
+      try {
+        sessionAlive = false;
+        mine.lang = locale;
+        mine.start();
+        if (apple) armWatchdog(mine, gen);
+      } catch (err) {
+        // A Stop/abort event can land after Start already opened the new locale.
+        if (alreadyStarted(err) || gen !== generation) return;
+        wantListening = false;
+        provider.onError?.(apple ? IPHONE_TYPE : "The microphone stopped. Type a caption instead.");
+      }
+    });
+  }
+
   function arm(mine: SpeechRecognitionLike, gen: number) {
     mine.lang = locale;
     mine.continuous = !apple;
     mine.interimResults = true;
     mine.maxAlternatives = 1;
+    draft = "";
+    aborting = false;
+    sessionAlive = false;
+    cancelCommit();
     const emittedFinals = new Set<number>();
-    // iOS one-shot sessions restart on the same object, so result indexes
-    // reset. `promoted` is the utterance we already published without isFinal.
-    let pendingInterim = "";
-    let promoted = "";
-    clearCommit();
 
-    const deliverFinal = (text: string) => {
-      if (!text || text === promoted) return;
-      promoted = "";
-      provider.onResult?.({ text, isFinal: true });
-    };
-
-    const commitPending = () => {
-      clearCommit();
+    const noteAlive = () => {
       if (gen !== generation) return;
-      const text = pendingInterim.trim();
-      pendingInterim = "";
-      if (!text || text === promoted) return;
-      promoted = text;
-      provider.onResult?.({ text, isFinal: true });
+      markAlive();
     };
+    mine.onstart = noteAlive;
+    mine.onaudiostart = noteAlive;
 
     mine.onresult = (event) => {
       if (gen !== generation) return;
+      markAlive();
       let interim = "";
-      let sawNewFinal = false;
       // Walk the whole list: Chrome on Android often reports resultIndex 0
       // on every event and would re-emit earlier finals as new history lines.
       for (let i = 0; i < event.results.length; i += 1) {
         const chunk = event.results[i];
-        const text = chunk[0].transcript.trim();
+        const text = alternativeTranscript(chunk);
         if (!text) continue;
         if (chunk.isFinal) {
-          if (!emittedFinals.has(i)) {
+          if (!emittedFinals.has(i) && text !== lastCommitted) {
             emittedFinals.add(i);
-            sawNewFinal = true;
-            if (apple) deliverFinal(text);
-            else provider.onResult?.({ text, isFinal: true });
+            lastCommitted = text;
+            draft = "";
+            cancelCommit();
+            provider.onResult?.({ text, isFinal: true });
+          } else {
+            draft = "";
+            cancelCommit();
           }
         } else {
           interim += `${text} `;
         }
       }
       const interimText = interim.trim();
+      // Safari sometimes ends with an empty result, then no-speech, and never
+      // a useful onend. Keep the phrase so that path can still publish it.
+      if (interimText) {
+        if (interimText === lastCommitted) {
+          draft = "";
+          cancelCommit();
+        } else if (interimText !== draft) {
+          draft = interimText;
+          // Same text repeating must not reset the quiet timer.
+          scheduleDraftCommit(gen);
+        }
+      }
       provider.onResult?.({ text: interimText, isFinal: false });
-      // Android and desktop already emit isFinal. Promoting there would
-      // publish drafts and then the real final.
-      if (!apple) return;
-      if (sawNewFinal) {
-        pendingInterim = "";
-        clearCommit();
-        return;
-      }
-      // Safari sometimes ends with an empty result. Keep the phrase so onend
-      // can still publish it.
-      if (!interimText) return;
-      if (promoted && interimText !== promoted) promoted = "";
-      // Safari keeps repeating the same interim. One commit is enough.
-      if (interimText === promoted || interimText === pendingInterim) {
-        if (interimText === promoted) clearCommit();
-        return;
-      }
-      pendingInterim = interimText;
-      queueCommit(commitPending);
     };
 
     mine.onerror = (event) => {
       if (gen !== generation) return;
-      if (event.error === "aborted" || event.error === "no-speech") return;
+      markAlive();
+      if (event.error === "aborted") {
+        aborting = true;
+        return;
+      }
+      if (event.error === "no-speech") {
+        // iOS reports heard speech as no-speech, or ends a pause this way.
+        // Commit here: Safari can skip onend or clear the result list first.
+        // An empty pause is shown, not turned into a caption.
+        if (apple && draft.trim() && draft.trim() !== lastCommitted) {
+          commitDraft();
+          return;
+        }
+        if (apple && !draft.trim()) provider.onError?.(IPHONE_NO_SPEECH);
+        return;
+      }
       // Desktop Chrome blips "network" and restarts. On iPhone that error means
       // the speech service never returned words — say so instead of spinning.
       if (event.error === "network" && !apple) return;
@@ -315,6 +409,8 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
         return;
       }
       if (apple) {
+        // Keep a transcript Safari delivered before the error.
+        commitDraft();
         provider.onError?.(IPHONE_TYPE);
         return;
       }
@@ -322,28 +418,19 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
     };
 
     mine.onend = () => {
-      // Stop() bumps generation and detaches this handler. A natural end
-      // (including no-speech after words) still commits the iPhone utterance.
+      // Stop() bumps generation and detaches this handler.
       if (gen !== generation) return;
-      if (apple) commitPending();
-      // The next one-shot session reuses index 0. Forgetting these finals
-      // drops every phrase after the first on iPhone.
-      promoted = "";
+      const skipped = aborting;
+      aborting = false;
+      // WebKit often leaves isFinal false. no-speech may already have committed;
+      // this publishes the draft when the session ends without that error.
+      if (!skipped && apple) commitDraft();
+      // The next one-shot may repeat the same words. Index 0 is reused too.
+      lastCommitted = "";
       emittedFinals.clear();
-      pendingInterim = "";
+      draft = "";
       if (!wantListening) return;
-      scheduleRestart(() => {
-        if (gen !== generation || !wantListening) return;
-        try {
-          mine.lang = locale;
-          mine.start();
-        } catch (err) {
-          // A Stop/abort event can land after Start already opened the new locale.
-          if (alreadyStarted(err) || gen !== generation) return;
-          wantListening = false;
-          provider.onError?.(apple ? IPHONE_TYPE : "The microphone stopped. Type a caption instead.");
-        }
-      });
+      restart(mine, gen);
     };
   }
 

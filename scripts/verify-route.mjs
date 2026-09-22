@@ -289,6 +289,14 @@ function createRecognitionWorld({ stickyFirstInstance, rejectLocales = [] }) {
       this.onend?.();
       return "end";
     }
+    /** Safari can end a heard phrase with no-speech and skip onend. */
+    noSpeech({ end = true } = {}) {
+      if (!this.running) return "idle";
+      this.running = false;
+      this.onerror?.({ error: "no-speech" });
+      if (end) this.onend?.();
+      return "no-speech";
+    }
   }
   return {
     Rec,
@@ -310,6 +318,7 @@ function harness(world, appleMobile, extra = {}) {
     appleMobile,
     recognitionCtor: world.Rec,
     scheduleRestart: (run) => queueMicrotask(run),
+    scheduleWatchdog: () => {},
     ...extra,
   });
   speech.onResult = (result) => {
@@ -497,5 +506,83 @@ await flush();
 assert(chromeDraftSpeech.finals.length === 0, "Chrome does not promote interim drafts");
 assert(chromeCommits === 0, "Chrome does not schedule an interim commit");
 assert(chromeDraft.active()[0].emit("en-US", "Welcome everyone") === "final", "Chrome final still publishes");
+
+// Join publishes isFinal only. The quiet timer is disabled here so a pass means
+// no-speech / onend itself delivered the line, not a later stall commit.
+function joinPublishHarness(world) {
+  const published = [];
+  const localDrafts = [];
+  const errors = [];
+  const speech = createWebSpeechProvider({
+    appleMobile: true,
+    recognitionCtor: world.Rec,
+    scheduleRestart: (run) => queueMicrotask(run),
+    scheduleCommit: () => {},
+    scheduleWatchdog: () => {},
+  });
+  speech.onResult = (result) => {
+    if (result.isFinal) published.push(result.text);
+    else if (result.text.trim()) localDrafts.push(result.text.trim());
+  };
+  speech.onError = (message) => errors.push(message);
+  return { speech, published, localDrafts, errors };
+}
+
+const heardDropped = createRecognitionWorld({ stickyFirstInstance: true });
+const heardJoin = joinPublishHarness(heardDropped);
+heardJoin.speech.start();
+await flush();
+assert(heardDropped.active()[0].emitPartial("en-US", "Welcome brothers") === "interim", "iPhone draft before no-speech");
+assert(heardDropped.active()[0].noSpeech({ end: false }) === "no-speech", "Safari no-speech can skip onend");
+assert(
+  heardJoin.published.join("|") === "Welcome brothers",
+  `Join publish path gets the heard phrase when onend is skipped: ${heardJoin.published.join("|")}`,
+);
+assert(heardJoin.localDrafts.includes("Welcome brothers"), "interim stayed local before the final");
+assert(heardJoin.errors.length === 0, `heard no-speech without onend raised ${heardJoin.errors.join(" | ")}`);
+
+const heardEnded = createRecognitionWorld({ stickyFirstInstance: true });
+const heardEndJoin = joinPublishHarness(heardEnded);
+heardEndJoin.speech.start();
+await flush();
+assert(heardEnded.active()[0].emitPartial("en-US", "Welcome") === "interim");
+assert(heardEnded.active()[0].emitPartial("en-US", "Welcome brothers") === "interim", "longer iPhone draft replaces the short one");
+assert(heardEnded.active()[0].emitPartial("en-US", "") === "interim", "empty Safari result keeps the heard phrase");
+assert(heardEnded.active()[0].noSpeech({ end: true }) === "no-speech", "no-speech then onend");
+await flush();
+assert(
+  heardEndJoin.published.join("|") === "Welcome brothers",
+  `no-speech and onend publish one Join final: ${heardEndJoin.published.join("|")}`,
+);
+assert(heardEndJoin.errors.length === 0, `heard no-speech with onend raised ${heardEndJoin.errors.join(" | ")}`);
+assert(heardEnded.active().length === 1, "session end restarts the same iPhone recognizer");
+assert(heardEnded.instances.length === 1, "no-speech does not build a second recognizer");
+
+const silentJoinWorld = createRecognitionWorld({ stickyFirstInstance: true });
+const silentJoin = joinPublishHarness(silentJoinWorld);
+silentJoin.speech.start();
+await flush();
+assert(silentJoinWorld.active()[0].noSpeech({ end: true }) === "no-speech", "empty pause is no-speech");
+await flush();
+assert(silentJoin.published.length === 0, "empty no-speech does not invent a caption");
+assert(silentJoin.localDrafts.length === 0, "empty no-speech does not invent an interim");
+assert(
+  silentJoin.errors.some((message) => message.includes("(no-speech)") && message.includes("Type a caption")),
+  `empty no-speech is shown: ${silentJoin.errors.join(" | ")}`,
+);
+assert(silentJoinWorld.active().length === 1, "empty no-speech keeps the iPhone mic armed");
+
+const chromeSilence = createRecognitionWorld({ stickyFirstInstance: false });
+const chromeSilenceSpeech = harness(chromeSilence, false, { scheduleCommit: () => {} });
+chromeSilenceSpeech.speech.start();
+await flush();
+assert(chromeSilence.active()[0].emitPartial("en-US", "Welcome brothers") === "interim", "Android interim before no-speech");
+assert(chromeSilence.active()[0].noSpeech({ end: true }) === "no-speech", "Android no-speech");
+await flush();
+assert(chromeSilenceSpeech.finals.length === 0, "Android no-speech does not promote an interim");
+assert(
+  !chromeSilenceSpeech.errors.some((message) => message.includes("(no-speech)")),
+  "Android no-speech is not the iPhone note",
+);
 
 console.log("OK route — lang= is TV-only, opt-in, and omitted from the combined TV link");
