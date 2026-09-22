@@ -499,6 +499,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     if (document.visibilityState === "visible" && state.listening) void requestWake();
   };
 
+  // Same final-only push as Join. iPhone utterances promoted in web-speech land here.
   speech.onResult = (result) => {
     error = "";
     if (result.isFinal) {

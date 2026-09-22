@@ -331,6 +331,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
       state = { ...state, listening: true, sourceLang, floor };
       renderDynamic();
       push();
+      // Finals that arrived after start() but before the floor was granted.
       const queued = pendingFinal.trim();
       pendingFinal = "";
       if (queued) void publishFinal(queued);
@@ -377,6 +378,9 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     push();
   }
 
+  // Interims paint on this phone only. Peers receive publishFinal.
+  // iPhone Safari often never sets isFinal; the speech provider turns the
+  // ended or stalled utterance into one final so this still pushes a line.
   speech.onResult = (result) => {
     error = "";
     if (result.isFinal) {

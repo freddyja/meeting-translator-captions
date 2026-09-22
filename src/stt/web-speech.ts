@@ -44,7 +44,15 @@ export type WebSpeechOptions = {
   recognitionCtor?: RecognitionCtor | null;
   /** One-shot restart. Tests run this immediately instead of waiting on a timer. */
   scheduleRestart?: (run: () => void) => void;
+  /**
+   * iOS only: publish a stalled interim when Safari never fires `isFinal` or `onend`.
+   * Return a timeout id so it can be cancelled. Tests invoke the callback themselves.
+   */
+  scheduleCommit?: (run: () => void) => number | void;
 };
+
+/** How long an iPhone interim must sit unchanged before it is committed without `onend`. */
+export const APPLE_UTTERANCE_COMMIT_MS = 1200;
 
 const IPHONE_TYPE =
   "iPhone couldn't capture speech. Type a caption — Send still reaches every phone and the TV.";
@@ -86,11 +94,27 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
     ((run: () => void) => {
       window.setTimeout(run, apple ? 200 : 120);
     });
+  const scheduleCommit =
+    options.scheduleCommit ??
+    ((run: () => void) => window.setTimeout(run, APPLE_UTTERANCE_COMMIT_MS));
 
   let rec: SpeechRecognitionLike | null = null;
   let locale = "en-US";
   let wantListening = false;
   let generation = 0;
+  let commitTimer = 0;
+
+  const clearCommit = () => {
+    if (!commitTimer) return;
+    window.clearTimeout(commitTimer);
+    commitTimer = 0;
+  };
+
+  const queueCommit = (run: () => void) => {
+    clearCommit();
+    const id = scheduleCommit(run);
+    if (typeof id === "number") commitTimer = id;
+  };
 
   const provider: SpeechProvider = {
     supported: Boolean(Ctor),
@@ -117,6 +141,7 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
     stop() {
       wantListening = false;
       generation += 1;
+      clearCommit();
       const mine = rec;
       // Drop the desktop object. On iOS the next Start must reuse it or the
       // engine keeps the first session's language (English).
@@ -203,10 +228,32 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
     mine.interimResults = true;
     mine.maxAlternatives = 1;
     const emittedFinals = new Set<number>();
+    // iOS one-shot sessions restart on the same object, so result indexes
+    // reset. `promoted` is the utterance we already published without isFinal.
+    let pendingInterim = "";
+    let promoted = "";
+    clearCommit();
+
+    const deliverFinal = (text: string) => {
+      if (!text || text === promoted) return;
+      promoted = "";
+      provider.onResult?.({ text, isFinal: true });
+    };
+
+    const commitPending = () => {
+      clearCommit();
+      if (gen !== generation) return;
+      const text = pendingInterim.trim();
+      pendingInterim = "";
+      if (!text || text === promoted) return;
+      promoted = text;
+      provider.onResult?.({ text, isFinal: true });
+    };
 
     mine.onresult = (event) => {
       if (gen !== generation) return;
       let interim = "";
+      let sawNewFinal = false;
       // Walk the whole list: Chrome on Android often reports resultIndex 0
       // on every event and would re-emit earlier finals as new history lines.
       for (let i = 0; i < event.results.length; i += 1) {
@@ -216,13 +263,35 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
         if (chunk.isFinal) {
           if (!emittedFinals.has(i)) {
             emittedFinals.add(i);
-            provider.onResult?.({ text, isFinal: true });
+            sawNewFinal = true;
+            if (apple) deliverFinal(text);
+            else provider.onResult?.({ text, isFinal: true });
           }
         } else {
           interim += `${text} `;
         }
       }
-      provider.onResult?.({ text: interim.trim(), isFinal: false });
+      const interimText = interim.trim();
+      provider.onResult?.({ text: interimText, isFinal: false });
+      // Android and desktop already emit isFinal. Promoting there would
+      // publish drafts and then the real final.
+      if (!apple) return;
+      if (sawNewFinal) {
+        pendingInterim = "";
+        clearCommit();
+        return;
+      }
+      // Safari sometimes ends with an empty result. Keep the phrase so onend
+      // can still publish it.
+      if (!interimText) return;
+      if (promoted && interimText !== promoted) promoted = "";
+      // Safari keeps repeating the same interim. One commit is enough.
+      if (interimText === promoted || interimText === pendingInterim) {
+        if (interimText === promoted) clearCommit();
+        return;
+      }
+      pendingInterim = interimText;
+      queueCommit(commitPending);
     };
 
     mine.onerror = (event) => {
@@ -253,7 +322,16 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
     };
 
     mine.onend = () => {
-      if (gen !== generation || !wantListening) return;
+      // Stop() bumps generation and detaches this handler. A natural end
+      // (including no-speech after words) still commits the iPhone utterance.
+      if (gen !== generation) return;
+      if (apple) commitPending();
+      // The next one-shot session reuses index 0. Forgetting these finals
+      // drops every phrase after the first on iPhone.
+      promoted = "";
+      emittedFinals.clear();
+      pendingInterim = "";
+      if (!wantListening) return;
       scheduleRestart(() => {
         if (gen !== generation || !wantListening) return;
         try {
