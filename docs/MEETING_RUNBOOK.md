@@ -11,14 +11,14 @@ Use this on the day of the meeting. The public URL is the Render service for **t
 ## Create the room
 
 1. On the host phone, open Meeting Translator and tap **Create room on this phone**.
-2. Note the 4-letter room code. The phone shows **EN | ES | PT** caption panes.
+2. Note the 4-letter room code. The phone shows **EN | ES | PT** caption panes. On a narrow phone the page scrolls, so Spoken language, TV layout, Smart View, and Join on phones stay reachable.
 3. Pick **Spoken language** (EN, ES, or PT) before you speak. Switching language while the mic is on retargets speech recognition. On iPhone the first recognizer is reused and only its `lang` changes (`en-US`, `es-ES`, `pt-BR`).
 
 ## Guests join
 
 1. On the host phone, tap **Join on phones**.
 2. Guests scan the QR or open the copied link (`/?view=join&room=ABCD`) in Chrome on Android or Safari / Chrome on iPhone. No app-store install.
-3. Each phone shows the same EN | ES | PT panes and picks its own spoken language.
+3. Each phone asks what language they are speaking and what language they want to watch (English, Español, Português, or all three), then **Join**. Watch changes only that phone. Spoken is used when they talk or type. They can change both from the caption screen.
 4. One speaker at a time. If someone else holds the mic, the phone says **Someone else is speaking**. The host can tap **Reclaim mic**.
 5. On iPhone, **Type a caption** and **Send** is always available. Start speech recognition inside the same tap that claims the floor. If Safari rejects a locale, the phone names it and you can still type.
 

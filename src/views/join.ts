@@ -41,6 +41,7 @@ const micIcon = `
 
 const NAME_KEY = "mt-guest-name";
 const WATCH_KEY = "mt-guest-watch";
+const SPOKEN_KEY = "mt-guest-spoken";
 
 const WATCH_OPTIONS: { id: WatchLang; name: string; scope: string; label: string }[] = [
   { id: "en", name: "English", scope: "only", label: "English only" },
@@ -59,14 +60,14 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   let error = "";
   let conn: RoomConnection | null = null;
   let publishEpoch = 0;
-  let hydrated = false;
   let wakeLock: WakeLockSentinel | null = null;
   let liveInterim = "";
   let peerId: string | null = null;
   let floor: FloorState = emptyFloor();
-  let sourceLang: Lang = "en";
+  let sourceLang: Lang = readSpokenLang();
   let watchLang: WatchLang = readWatchLang();
   let displayName = readGuestName();
+  let entered = false;
   let lastCaptionWasMock = false;
   let typeFallback = stt.preferType;
   let pendingFinal = "";
@@ -80,7 +81,27 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     });
 
   root.innerHTML = `
-    <section class="screen join-screen" data-join-screen>
+    <section class="screen join-setup" data-join-setup>
+      ${brandBlock(true)}
+      <p class="lede join-setup-lead">Room <strong data-setup-room></strong>. Answer two questions, then join.</p>
+      <fieldset class="join-setup-q">
+        <legend id="join-spoken-q">What language are you speaking?</legend>
+        <div class="chips" data-setup-source role="group" aria-labelledby="join-spoken-q"></div>
+      </fieldset>
+      <fieldset class="join-setup-q">
+        <legend id="join-watch-q">What language do you want to watch?</legend>
+        <div class="chips join-setup-watch" data-setup-watch role="group" aria-labelledby="join-watch-q"></div>
+      </fieldset>
+      <p class="hint">Spoken is for your mic and typed captions. Watch is the caption language on this phone only.</p>
+      <label class="join-name">
+        <span>Your name</span>
+        <input data-setup-name maxlength="24" autocomplete="name" placeholder="Optional" enterkeyhint="done" />
+      </label>
+      <button class="primary join-setup-go" data-join-continue type="button">Join</button>
+      <button class="ghost" data-setup-home type="button">Leave</button>
+      ${creditFooter()}
+    </section>
+    <section class="screen join-screen" data-join-screen hidden>
       <div class="tv-top">
         ${brandBlock(true)}
         <div class="tv-meta">
@@ -140,11 +161,26 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   const typeInput = typeForm.elements.namedItem("caption") as HTMLInputElement;
   const typeSend = typeForm.querySelector("button[type='submit']") as HTMLButtonElement;
   const screenEl = root.querySelector("[data-join-screen]") as HTMLElement;
+  const setupEl = root.querySelector("[data-join-setup]") as HTMLElement;
+  const setupSource = root.querySelector("[data-setup-source]") as HTMLElement;
+  const setupWatch = root.querySelector("[data-setup-watch]") as HTMLElement;
+  const setupName = root.querySelector("[data-setup-name]") as HTMLInputElement;
+  const setupContinue = root.querySelector("[data-join-continue]") as HTMLButtonElement;
   const board = root.querySelector("[data-board]") as HTMLElement;
   const nameInput = root.querySelector("[data-name]") as HTMLInputElement;
   const sttHint = root.querySelector("[data-stt-hint]") as HTMLElement;
   const landscapeMq = window.matchMedia("(orientation: landscape)");
   nameInput.value = displayName;
+  setupName.value = displayName === "Guest" ? "" : displayName;
+  (root.querySelector("[data-setup-room]") as HTMLElement).textContent = room;
+  setupSource.innerHTML = LANGS.map(
+    (lang) =>
+      `<button class="chip" type="button" data-setup-lang="${lang}" aria-pressed="false">${LANG_SHORT[lang]} ${LANG_LABEL[lang]}</button>`,
+  ).join("");
+  setupWatch.innerHTML = WATCH_OPTIONS.map(
+    (option) =>
+      `<button class="chip watch-chip" type="button" data-setup-watch="${option.id}" aria-label="Watch ${option.label}" aria-pressed="false"><span class="watch-name">${option.name}</span><span class="watch-scope">${option.scope}</span></button>`,
+  ).join("");
 
   const els = {
     room: root.querySelector("[data-room]") as HTMLElement,
@@ -376,6 +412,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     const next = btn.dataset.lang as Lang;
     if (!isLang(next)) return;
     sourceLang = next;
+    writeSpokenLang(sourceLang);
     speech.setLang(speechLocale(sourceLang));
     if (isFloorHolder(floor, peerId)) {
       state = { ...state, sourceLang };
@@ -440,6 +477,103 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   window.addEventListener("orientationchange", onOrientationChange);
   syncOrientation();
 
+  const paintSetup = () => {
+    for (const btn of setupSource.querySelectorAll<HTMLButtonElement>("[data-setup-lang]")) {
+      const on = btn.dataset.setupLang === sourceLang;
+      btn.classList.toggle("active", on);
+      btn.setAttribute("aria-pressed", String(on));
+    }
+    for (const btn of setupWatch.querySelectorAll<HTMLButtonElement>("[data-setup-watch]")) {
+      const on = btn.dataset.setupWatch === watchLang;
+      btn.classList.toggle("active", on);
+      btn.setAttribute("aria-pressed", String(on));
+    }
+  };
+
+  const onSetupSource = (event: Event) => {
+    const btn = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-setup-lang]");
+    if (!btn?.dataset.setupLang || !isLang(btn.dataset.setupLang)) return;
+    sourceLang = btn.dataset.setupLang;
+    writeSpokenLang(sourceLang);
+    speech.setLang(speechLocale(sourceLang));
+    paintSetup();
+  };
+
+  const onSetupWatch = (event: Event) => {
+    const btn = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-setup-watch]");
+    if (!btn?.dataset.setupWatch || !isWatchLang(btn.dataset.setupWatch)) return;
+    watchLang = btn.dataset.setupWatch;
+    writeWatchLang(watchLang);
+    paintSetup();
+  };
+
+  const onSetupName = () => {
+    displayName = sanitizePeerName(setupName.value, "Guest");
+    writeGuestName(displayName);
+  };
+
+  const onSetupHome = () => {
+    goto("home");
+  };
+
+  const enterRoom = () => {
+    if (entered) return;
+    onSetupName();
+    writeSpokenLang(sourceLang);
+    writeWatchLang(watchLang);
+    speech.setLang(speechLocale(sourceLang));
+    nameInput.value = displayName;
+    entered = true;
+    setupEl.hidden = true;
+    screenEl.hidden = false;
+    conn = connectRoom({
+      room,
+      role: "guest",
+      name: displayName,
+      onJoined(info) {
+        peerId = info.peerId;
+        floor = info.floor ?? floor;
+        renderDynamic();
+      },
+      onFloor(next) {
+        const lost = lostFloor(floor, next, peerId);
+        floor = next;
+        if (lost) {
+          publishEpoch += 1;
+          pendingFinal = "";
+          stopLocalMic();
+          error = someoneElseSpeaking(next);
+        } else if (isFloorHolder(next, peerId) && error.startsWith("Someone else is speaking")) {
+          error = "";
+        }
+        state = { ...state, floor: next };
+        renderDynamic();
+      },
+      onState(next) {
+        const holding = keepsLocalCaptions(floor, next.floor, peerId);
+        floor = reconcileFloor(floor, next.floor, peerId);
+        state = {
+          ...next,
+          room,
+          floor,
+          sourceLang: holding ? sourceLang : isLang(next.sourceLang) ? next.sourceLang : sourceLang,
+          listening: holding ? state.listening : Boolean(next.listening),
+          lines: holding ? state.lines : finalizedLines(next.lines ?? []),
+        };
+        renderDynamic();
+      },
+      onPeers(next) {
+        peers = next;
+        renderDynamic();
+      },
+      onStatus(status) {
+        connStatus = status;
+        renderDynamic();
+      },
+    });
+    renderDynamic();
+  };
+
   els.mic.addEventListener("click", onMic);
   document.addEventListener("visibilitychange", onVisibility);
   sourceBox.addEventListener("click", onSource);
@@ -447,58 +581,12 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   nameInput.addEventListener("change", onName);
   root.querySelector("[data-home]")?.addEventListener("click", onHome);
   typeForm.addEventListener("submit", onType);
-
-  conn = connectRoom({
-    room,
-    role: "guest",
-    name: displayName,
-    onJoined(info) {
-      peerId = info.peerId;
-      floor = info.floor ?? floor;
-      renderDynamic();
-    },
-    onFloor(next) {
-      const lost = lostFloor(floor, next, peerId);
-      floor = next;
-      if (lost) {
-        publishEpoch += 1;
-        pendingFinal = "";
-        stopLocalMic();
-        error = someoneElseSpeaking(next);
-      } else if (isFloorHolder(next, peerId) && error.startsWith("Someone else is speaking")) {
-        error = "";
-      }
-      state = { ...state, floor: next };
-      renderDynamic();
-    },
-    onState(next) {
-      const holding = keepsLocalCaptions(floor, next.floor, peerId);
-      floor = reconcileFloor(floor, next.floor, peerId);
-      state = {
-        ...next,
-        room,
-        floor,
-        sourceLang: holding ? sourceLang : isLang(next.sourceLang) ? next.sourceLang : sourceLang,
-        listening: holding ? state.listening : Boolean(next.listening),
-        lines: holding ? state.lines : finalizedLines(next.lines ?? []),
-      };
-      if (!hydrated) {
-        hydrated = true;
-        if (isLang(next.sourceLang) && !holding) sourceLang = next.sourceLang;
-      }
-      renderDynamic();
-    },
-    onPeers(next) {
-      peers = next;
-      renderDynamic();
-    },
-    onStatus(status) {
-      connStatus = status;
-      renderDynamic();
-    },
-  });
-
-  renderDynamic();
+  setupSource.addEventListener("click", onSetupSource);
+  setupWatch.addEventListener("click", onSetupWatch);
+  setupName.addEventListener("change", onSetupName);
+  setupContinue.addEventListener("click", enterRoom);
+  root.querySelector("[data-setup-home]")?.addEventListener("click", onSetupHome);
+  paintSetup();
 
   return () => {
     speech.stop();
@@ -513,6 +601,10 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     watchBox.removeEventListener("click", onWatch);
     nameInput.removeEventListener("change", onName);
     typeForm.removeEventListener("submit", onType);
+    setupSource.removeEventListener("click", onSetupSource);
+    setupWatch.removeEventListener("click", onSetupWatch);
+    setupName.removeEventListener("change", onSetupName);
+    setupContinue.removeEventListener("click", enterRoom);
   };
 }
 
@@ -548,6 +640,23 @@ function readWatchLang(): WatchLang {
 function writeWatchLang(value: WatchLang) {
   try {
     localStorage.setItem(WATCH_KEY, value);
+  } catch {
+    /* private mode / blocked storage */
+  }
+}
+
+function readSpokenLang(): Lang {
+  try {
+    const value = localStorage.getItem(SPOKEN_KEY);
+    return isLang(value) ? value : "en";
+  } catch {
+    return "en";
+  }
+}
+
+function writeSpokenLang(value: Lang) {
+  try {
+    localStorage.setItem(SPOKEN_KEY, value);
   } catch {
     /* private mode / blocked storage */
   }

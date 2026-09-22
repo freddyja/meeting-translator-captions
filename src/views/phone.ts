@@ -183,7 +183,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
           <button class="primary send-tv-copy" data-copy-join type="button">Copy join link</button>
           <ol class="send-tv-steps">
             <li>Each person scans this QR (camera app or Chrome) — Android or iPhone.</li>
-            <li>They start on EN | ES | PT. Watch on their phone can show one language — that does not change this phone or the TV. The join link is HTTPS so the mic can work.</li>
+            <li>They choose the language they are speaking and the language they want to watch, then tap Join. Watch on their phone can show one language or all three — that does not change this phone or the TV. The join link is HTTPS so the mic can work.</li>
             <li>One speaker at a time. Chrome on Android is best for live speech; iPhone can always watch, and type a caption if the mic is not available.</li>
           </ol>
         </div>
