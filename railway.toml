@@ -1,0 +1,11 @@
+# Railway — one service, one replica. Dockerfile builds the PWA and `npm start`
+# serves static files plus the /caption-ws relay. Railway injects PORT and HTTPS.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"

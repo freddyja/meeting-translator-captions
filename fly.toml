@@ -1,0 +1,47 @@
+# Single Node process: static PWA + in-memory WebSocket relay at /caption-ws.
+# Phone and TV must land on the same machine, so keep exactly one instance.
+#
+# First deploy:
+#   fly launch --ha=false --copy-config --yes
+#   fly deploy --ha=false
+# If launch created two machines:
+#   fly scale count 1
+
+app = "meeting-translator-captions"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  HOST = "0.0.0.0"
+  # Recommended: DeepL Free (no Google billing). After deploy:
+  #   fly secrets set TRANSLATE_PROVIDER=deepl DEEPL_API_KEY=...
+  # Without a DeepL key the app uses MyMemory (no key). Offline: TRANSLATE_PROVIDER=mock.
+  # Do not put DEEPL_API_KEY or GOOGLE_TRANSLATE_API_KEY here.
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 50
+    hard_limit = 100
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "15s"
+    method = "GET"
+    timeout = "5s"
+    path = "/health"
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
