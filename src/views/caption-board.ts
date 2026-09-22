@@ -43,10 +43,11 @@ export function paintCaptionBoard(
   board: HTMLElement,
   state: Pick<RoomState, "layout" | "lines">,
   live?: LiveCaption | null,
+  langs?: readonly Lang[],
 ): Lang[] {
-  const langs = langsForLayout(state.layout);
-  board.dataset.count = String(langs.length);
+  const shown = langs?.length ? [...langs] : langsForLayout(state.layout);
+  board.dataset.count = String(shown.length);
   board.dataset.layout = state.layout;
-  board.innerHTML = langs.map((lang) => renderWindow(lang, state.lines, live)).join("");
-  return langs;
+  board.innerHTML = shown.map((lang) => renderWindow(lang, state.lines, live)).join("");
+  return shown;
 }

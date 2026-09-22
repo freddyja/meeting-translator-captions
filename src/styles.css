@@ -795,11 +795,13 @@ body:has(.join-screen) {
   }
 }
 
-/* iPhone sideways: panes in one row, talk controls on screen. */
+/* iPhone sideways: panes in one row, talk controls on screen.
+   Name yields so Spoken, Watch, and Start / Type+Send stay in view. */
 @media (max-height: 520px) {
 .join-screen > .floor-banner,
   .join-dock .credit-footer,
-  .join-screen .smart-view-tip {
+  .join-screen .smart-view-tip,
+  .join-dock .join-name {
     display: none;
   }
 
@@ -813,6 +815,87 @@ body:has(.join-screen) {
   .join-screen .join-type input,
   .join-screen .join-type .primary {
     min-height: 40px;
+  }
+}
+
+.join-prefs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.join-watch .chips {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.join-dock .join-watch .watch-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.02rem;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.22rem 0.15rem;
+  line-height: 1.05;
+  text-align: center;
+}
+
+.join-dock .watch-name,
+.join-dock .watch-scope {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.join-dock .watch-name {
+  font-size: 0.78rem;
+}
+
+.join-dock .watch-scope {
+  font-size: 0.62rem;
+  letter-spacing: 0.01em;
+  opacity: 0.88;
+}
+
+/* One Watch language fills the join caption area. All three keeps the shared board. */
+.join-screen .tv-board[data-count="1"] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.join-screen .tv-board[data-count="1"] .window {
+  height: 100%;
+}
+
+.join-screen .tv-board[data-count="1"] .line,
+.join-screen .tv-board[data-count="1"] .empty-caption {
+  font-size: clamp(1.55rem, 6.2vw, 3.2rem);
+  line-height: 1.12;
+}
+
+@media (max-height: 520px) {
+  .join-prefs {
+    gap: 0.2rem;
+  }
+
+  .join-dock .join-watch .watch-chip {
+    min-height: 36px;
+    padding: 0.12rem 0.15rem;
+  }
+
+  .join-dock .watch-scope {
+    display: none;
+  }
+
+  .join-screen .tv-board[data-count="1"] .line,
+  .join-screen .tv-board[data-count="1"] .empty-caption {
+    font-size: clamp(1.05rem, 5vh, 1.65rem);
   }
 }
 

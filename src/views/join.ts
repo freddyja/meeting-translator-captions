@@ -18,6 +18,8 @@ import {
   LANG_LABEL,
   LANG_SHORT,
   LANGS,
+  isWatchLang,
+  langsForWatch,
   sanitizePeerName,
   someoneElseSpeaking,
   speechLocale,
@@ -26,6 +28,7 @@ import {
   type FloorState,
   type Lang,
   type PeerCounts,
+  type WatchLang,
 } from "../types";
 
 const micIcon = `
@@ -37,6 +40,14 @@ const micIcon = `
 `;
 
 const NAME_KEY = "mt-guest-name";
+const WATCH_KEY = "mt-guest-watch";
+
+const WATCH_OPTIONS: { id: WatchLang; name: string; scope: string; label: string }[] = [
+  { id: "en", name: "English", scope: "only", label: "English only" },
+  { id: "es", name: "Español", scope: "only", label: "Español only" },
+  { id: "pt", name: "Português", scope: "only", label: "Português only" },
+  { id: "all", name: "All three", scope: "EN | ES | PT", label: "All three (EN | ES | PT)" },
+];
 
 export function mountJoin(root: HTMLElement, room: string): () => void {
   const translator = createTranslator();
@@ -54,6 +65,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   let peerId: string | null = null;
   let floor: FloorState = emptyFloor();
   let sourceLang: Lang = "en";
+  let watchLang: WatchLang = readWatchLang();
   let displayName = readGuestName();
   let lastCaptionWasMock = false;
   let typeFallback = stt.preferType;
@@ -87,9 +99,15 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
           <span>Your name</span>
           <input data-name maxlength="24" autocomplete="name" placeholder="Guest" enterkeyhint="done" />
         </label>
-        <div class="join-spoken">
-          <p class="control-label">Spoken language</p>
-          <div class="chips" data-source></div>
+        <div class="join-prefs">
+          <div class="join-spoken">
+            <p class="control-label">Spoken language</p>
+            <div class="chips" data-source></div>
+          </div>
+          <div class="join-watch">
+            <p class="control-label" id="join-watch-label">Watch</p>
+            <div class="chips" data-watch-box role="group" aria-labelledby="join-watch-label"></div>
+          </div>
         </div>
         <div class="smart-view-controls join-actions">
           <button class="smart-view-mic" data-mic type="button" aria-pressed="false">
@@ -110,6 +128,12 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   const sourceBox = root.querySelector("[data-source]") as HTMLElement;
   sourceBox.innerHTML = LANGS.map(
     (lang) => `<button class="chip" type="button" data-lang="${lang}">${LANG_SHORT[lang]} ${LANG_LABEL[lang]}</button>`,
+  ).join("");
+
+  const watchBox = root.querySelector("[data-watch-box]") as HTMLElement;
+  watchBox.innerHTML = WATCH_OPTIONS.map(
+    (option) =>
+      `<button class="chip watch-chip" type="button" data-watch="${option.id}" aria-label="Watch ${option.label}" aria-pressed="false"><span class="watch-name">${option.name}</span><span class="watch-scope">${option.scope}</span></button>`,
   ).join("");
 
   const typeForm = root.querySelector("[data-type]") as HTMLFormElement;
@@ -190,10 +214,16 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     for (const btn of sourceBox.querySelectorAll<HTMLButtonElement>("[data-lang]")) {
       btn.classList.toggle("active", btn.dataset.lang === sourceLang);
     }
+    for (const btn of watchBox.querySelectorAll<HTMLButtonElement>("[data-watch]")) {
+      const on = btn.dataset.watch === watchLang;
+      btn.classList.toggle("active", on);
+      btn.setAttribute("aria-pressed", String(on));
+    }
     paintCaptionBoard(
       board,
       { layout: state.layout, lines: finalizedLines(state.lines) },
       liveInterim && holding ? { text: liveInterim, sourceLang } : null,
+      langsForWatch(watchLang),
     );
     syncOrientation();
   }
@@ -354,6 +384,14 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     renderDynamic();
   };
 
+  const onWatch = (event: Event) => {
+    const btn = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-watch]");
+    if (!btn?.dataset.watch || !isWatchLang(btn.dataset.watch) || btn.dataset.watch === watchLang) return;
+    watchLang = btn.dataset.watch;
+    writeWatchLang(watchLang);
+    renderDynamic();
+  };
+
   const onName = () => {
     displayName = sanitizePeerName(nameInput.value, "Guest");
     writeGuestName(displayName);
@@ -405,6 +443,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   els.mic.addEventListener("click", onMic);
   document.addEventListener("visibilitychange", onVisibility);
   sourceBox.addEventListener("click", onSource);
+  watchBox.addEventListener("click", onWatch);
   nameInput.addEventListener("change", onName);
   root.querySelector("[data-home]")?.addEventListener("click", onHome);
   typeForm.addEventListener("submit", onType);
@@ -471,6 +510,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     document.removeEventListener("visibilitychange", onVisibility);
     els.mic.removeEventListener("click", onMic);
     sourceBox.removeEventListener("click", onSource);
+    watchBox.removeEventListener("click", onWatch);
     nameInput.removeEventListener("change", onName);
     typeForm.removeEventListener("submit", onType);
   };
@@ -491,6 +531,23 @@ function readGuestName(): string {
 function writeGuestName(value: string) {
   try {
     sessionStorage.setItem(NAME_KEY, value);
+  } catch {
+    /* private mode / blocked storage */
+  }
+}
+
+function readWatchLang(): WatchLang {
+  try {
+    const value = localStorage.getItem(WATCH_KEY);
+    return isWatchLang(value) ? value : "all";
+  } catch {
+    return "all";
+  }
+}
+
+function writeWatchLang(value: WatchLang) {
+  try {
+    localStorage.setItem(WATCH_KEY, value);
   } catch {
     /* private mode / blocked storage */
   }

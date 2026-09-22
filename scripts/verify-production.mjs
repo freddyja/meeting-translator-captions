@@ -129,6 +129,13 @@ async function main() {
   assert(appJs.includes("Reclaim mic"), "host can reclaim the mic");
   assert(appJs.includes("view=join"), "guest join query");
   assert(appJs.includes("Spoken language"), "spoken language chips");
+  assert(appJs.includes("data-watch"), "join Watch preference");
+  assert(appJs.includes("data-watch-box"), "join Watch control group");
+  assert(appJs.includes("English only"), "watch English only");
+  assert(appJs.includes("Español only"), "watch Español only");
+  assert(appJs.includes("Português only"), "watch Português only");
+  assert(appJs.includes("All three (EN | ES | PT)"), "watch all three");
+  assert(appJs.includes("langsForWatch") || appJs.includes("mt-guest-watch"), "watch stays on this phone");
   assert(appJs.includes("Type a caption"), "type-to-send caption fallback");
   assert(appJs.includes("Chrome on Android"), "Android Chrome is best for live speech");
   assert(appJs.includes("iPhone"), "iPhone join is documented in the UI");
@@ -165,6 +172,12 @@ async function main() {
   );
   assert(appCss.includes("smart-view-source-chip"), "Smart View spoken language chip style");
   assert(appCss.includes("join-screen"), "guest join screen class");
+  assert(appCss.includes("join-watch"), "join Watch controls are styled");
+  assert(
+    appCss.includes('.join-screen .tv-board[data-count="1"]') ||
+      appCss.includes(".join-screen .tv-board[data-count=1]"),
+    "single Watch pane fills the join board",
+  );
   assert(appCss.includes("phone-live-board"), "host caption panes are styled");
   assert(appCss.includes("100svh"), "iOS small viewport height");
   assert(appCss.includes("safe-area-inset-top") && appCss.includes("safe-area-inset-bottom"), "safe area insets");
