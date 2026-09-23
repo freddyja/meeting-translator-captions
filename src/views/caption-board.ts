@@ -1,5 +1,6 @@
 import { finalizedLines } from "../caption-history.ts";
 import { escapeHtml } from "../dom.ts";
+import { displaySpeaker, t } from "../i18n.ts";
 import {
   LANG_LABEL,
   LANG_SHORT,
@@ -46,18 +47,18 @@ function renderWindow(lang: Lang, lines: CaptionLine[], live: LiveCaption | null
       ? ""
       : visible
           .map((line, index) => {
-            const name = speakerOf(line.speaker);
+            const name = displaySpeaker(speakerOf(line.speaker));
             return renderSpoken(name, line.text[lang], lineClass(index, visible.length, Boolean(liveText)));
           })
           .join("");
   let extra = "";
   if (liveText) {
-    const draft = lang === live?.sourceLang ? liveText : "Listening…";
-    extra = renderSpoken(active, draft, "line interim");
+    const draft = lang === live?.sourceLang ? liveText : t("listeningEllipsis");
+    extra = renderSpoken(displaySpeaker(active), draft, "line interim");
   } else if (floorChanged) {
-    extra = renderSpoken(active, state.listening ? "Listening…" : "", "line speaker-live");
+    extra = renderSpoken(displaySpeaker(active), state.listening ? t("listeningEllipsis") : "", "line speaker-live");
   } else if (visible.length === 0) {
-    extra = `<p class="empty-caption">Waiting for live speech…</p>`;
+    extra = `<p class="empty-caption">${escapeHtml(t("waitingSpeech"))}</p>`;
   }
   return `
     <section class="window" data-lang="${lang}" lang="${lang}">

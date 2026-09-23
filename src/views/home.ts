@@ -1,4 +1,5 @@
 import { brandBlock, creditFooter } from "../brand";
+import { bindUiLang, t, uiLangSwitcherHtml } from "../i18n";
 import {
   canPromptInstall,
   isStandaloneDisplay,
@@ -15,39 +16,35 @@ export function mountHome(root: HTMLElement): () => void {
   root.innerHTML = `
     <section class="screen">
       ${brandBlock()}
-      <p class="lede">
-        Live multilingual meeting captions. A phone captures the speaker; every phone and the TV show English, Spanish, and Portuguese windows.
-      </p>
+      ${uiLangSwitcherHtml()}
+      <p class="lede" data-i18n="homeLede"></p>
       <div class="stack">
-        <button class="primary" data-create type="button">Create room on this phone</button>
+        <button class="primary" data-create type="button" data-i18n="createRoom"></button>
         <form class="stack" data-join>
           <label class="field">
-            <span>Room code</span>
+            <span data-i18n="roomCode"></span>
             <input name="room" maxlength="4" autocomplete="off" spellcheck="false" placeholder="ABCD" />
           </label>
-          <button class="secondary" type="submit">Open TV windows</button>
-          <button class="secondary" data-join-phone type="button">Join on this phone</button>
+          <button class="secondary" type="submit" data-i18n="openTvWindows"></button>
+          <button class="secondary" data-join-phone type="button" data-i18n="joinThisPhone"></button>
         </form>
-        <p class="hint">Host: <strong>Chrome</strong> on Android (not Samsung Internet). Guests: scan <strong>Join on phones</strong> in <strong>Chrome on Android</strong> or <strong>Safari / Chrome on iPhone</strong> — no app store install. <strong>Send to TV</strong> opens the caption page in the TV’s own browser. <strong>Smart View mode</strong> mirrors this phone’s caption layout.</p>
+        <p class="hint" data-i18n-html="homeHint"></p>
         <div class="meeting-mode">
-          <p class="control-label">Meeting mode</p>
-          <button class="chip" data-offline-mode type="button" aria-pressed="false" aria-label="Offline / Local meeting — use the built-in dictionary, no MyMemory">
-            Offline / Local meeting
-          </button>
+          <p class="control-label" data-i18n="meetingMode"></p>
+          <button class="chip" data-offline-mode type="button" aria-pressed="false" data-i18n="offlineLocal" data-i18n-aria="offlineAria"></button>
           <p class="offline-banner" data-offline-banner hidden>
-            Offline translate (limited phrases). For full local setup see
-            <a href="#local-setup">laptop steps</a>.
+            <span data-i18n="offlineBannerBefore"></span><a href="#local-setup" data-i18n="laptopSteps"></a><span data-i18n="offlineBannerAfter"></span>
           </p>
-          <p class="hint">On: built-in dictionary (no MyMemory). Off: hosted default (MyMemory, then MinT if the daily quota is gone).</p>
+          <p class="hint" data-i18n="offlineHint"></p>
         </div>
       </div>
       <aside class="install-card" id="local-setup" data-local-setup>
         ${localSetupInnerHtml()}
       </aside>
       <aside class="install-card" data-install>
-        <h2>Install on this phone</h2>
+        <h2 data-i18n="installTitle"></h2>
         <p class="install-copy" data-install-copy></p>
-        <button class="primary" data-install-btn type="button" hidden>Install app</button>
+        <button class="primary" data-install-btn type="button" hidden data-i18n="installApp"></button>
         <ol class="install-steps" data-install-steps></ol>
       </aside>
       ${creditFooter()}
@@ -72,38 +69,36 @@ export function mountHome(root: HTMLElement): () => void {
     installBtn.hidden = standalone || !canPromptInstall();
 
     if (standalone) {
-      installCopy.textContent =
-        "This is the installed Meeting Translator app. Create a room here, then open the TV link on the meeting TV.";
+      installCopy.textContent = t("installStandaloneCopy");
       installSteps.innerHTML = `
-        <li>Tap <strong>Create room on this phone</strong>.</li>
-        <li>Use <strong>Send to TV</strong> (QR / TV browser) or <strong>Smart View mode</strong> (mirror captions from the phone quick panel).</li>
-        <li>Keep this phone on the app while you speak. Exit Smart View mode to return to mic controls.</li>
+        <li>${t("installStandalone1")}</li>
+        <li>${t("installStandalone2")}</li>
+        <li>${t("installStandalone3")}</li>
       `;
       return;
     }
 
     if (wasJustInstalled()) {
-      installCopy.textContent = "Installed. Open Meeting Translator from your home screen.";
+      installCopy.textContent = t("installDoneCopy");
       installSteps.innerHTML = `
-        <li>Find the <strong>Meeting Translator</strong> icon on the home screen.</li>
-        <li>Launch it — you should see this app without the browser address bar.</li>
-        <li>Create a room, then open the TV link on the TV.</li>
+        <li>${t("installDone1")}</li>
+        <li>${t("installDone2")}</li>
+        <li>${t("installDone3")}</li>
       `;
       return;
     }
 
-    installCopy.textContent =
-      "Add Meeting Translator to the home screen like a normal app. The meeting is then a tap — no git or npm.";
+    installCopy.textContent = t("installGuideCopy");
     installSteps.innerHTML = canPromptInstall()
       ? `
-        <li>Tap <strong>Install app</strong> above and confirm.</li>
-        <li>Open <strong>Meeting Translator</strong> from the home screen (standalone, no address bar).</li>
-        <li>Create the room on the phone, then open the TV link on the TV.</li>
+        <li>${t("installReady1")}</li>
+        <li>${t("installReady2")}</li>
+        <li>${t("installReady3")}</li>
       `
       : `
-        <li>Stay in <strong>Chrome</strong> on Android (not Samsung Internet). On iPhone, use Safari.</li>
-        <li>Tap the browser menu → <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
-        <li>Open <strong>Meeting Translator</strong> from the home screen, then create a room.</li>
+        <li>${t("installManual1")}</li>
+        <li>${t("installManual2")}</li>
+        <li>${t("installManual3")}</li>
       `;
   };
 
@@ -140,6 +135,7 @@ export function mountHome(root: HTMLElement): () => void {
   const unsubscribe = subscribeInstall(paintInstall);
   const unbindOffline = bindOfflineModeToggle(offlineBtn, { banner: offlineBanner });
   const unbindSetup = bindLocalSetup(localSetup);
+  const unbindLang = bindUiLang(root, paintInstall);
   paintInstall();
 
   return () => {
@@ -151,5 +147,6 @@ export function mountHome(root: HTMLElement): () => void {
     unsubscribe();
     unbindOffline();
     unbindSetup();
+    unbindLang();
   };
 }

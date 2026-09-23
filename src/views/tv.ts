@@ -1,5 +1,6 @@
 import { brandBlock, creditFooter } from "../brand";
 import { finalizedLines } from "../caption-history";
+import { bindUiLang, displaySpeaker, t, uiLangSwitcherHtml } from "../i18n";
 import { connectRoom } from "../realtime/client";
 import { goto } from "../router";
 import { LANG_LABEL, LANG_SHORT, emptyState, type ConnStatus, type Lang, type PeerCounts } from "../types";
@@ -16,10 +17,11 @@ export function mountTv(root: HTMLElement, room: string, lang?: Lang): () => voi
       <div class="tv-top">
         ${brandBlock(true)}
         <div class="tv-meta">
-          <div class="room-pill">Room <strong data-room></strong></div>
+          <div class="room-pill"><span data-i18n="roomWord"></span> <strong data-room></strong></div>
           <div class="room-pill" data-lang-pill hidden></div>
           <div class="status-pill"><span class="dot" data-dot></span><span data-status></span></div>
-          <button class="ghost" data-home type="button">Leave</button>
+          ${uiLangSwitcherHtml(true)}
+          <button class="ghost" data-home type="button" data-i18n="leave"></button>
         </div>
       </div>
       <main class="tv-board" data-board></main>
@@ -48,13 +50,13 @@ export function mountTv(root: HTMLElement, room: string, lang?: Lang): () => voi
     }
     const phoneNote =
       state.listening && state.floor?.holderName
-        ? `${state.floor.holderName} speaking`
+        ? t("nameSpeaking", { name: displaySpeaker(state.floor.holderName) })
         : peers.phones > 0
           ? peers.guests > 0
-            ? `Phones connected (${peers.phones})`
-            : "Phone connected"
-          : "Waiting for phone";
-    statusEl.textContent = state.listening ? `Live · ${phoneNote}` : phoneNote;
+            ? t("phonesConnected", { n: peers.phones })
+            : t("phoneConnected")
+          : t("waitingForPhone");
+    statusEl.textContent = state.listening ? t("liveDot", { note: phoneNote }) : phoneNote;
     dot.className = `dot ${state.listening ? "listening" : connStatus === "live" ? "live" : "offline"}`;
     paintCaptionBoard(board, langLock ? { ...state, layout: langLock } : state);
   }
@@ -79,10 +81,12 @@ export function mountTv(root: HTMLElement, room: string, lang?: Lang): () => voi
     },
   });
 
+  const unbindLang = bindUiLang(root, render);
   render();
 
   return () => {
     conn.close();
     home?.removeEventListener("click", onHome);
+    unbindLang();
   };
 }

@@ -1,6 +1,17 @@
+import {
+  canonicalRole,
+  displayCopy,
+  displaySpeaker,
+  getUiLang,
+  setUiLang,
+  t,
+  UI_LANG_STORAGE_KEY,
+  uiLangFromTags,
+  watchChipsHtml,
+} from "../src/i18n.ts";
 import { joinSearch, parseRoute, parseTvLang, tvSearch } from "../src/router.ts";
 import { detectSpeechCapability, isAppleMobile } from "../src/stt/capability.ts";
-import { createWebSpeechProvider } from "../src/stt/web-speech.ts";
+import { createWebSpeechProvider, localeRejectedMessage } from "../src/stt/web-speech.ts";
 import { renderCaptionBoard } from "../src/views/caption-board.ts";
 import { captionSpeakerName, isWatchLang, keepsLocalCaptions, langsForLayout, langsForWatch, lostFloor, reconcileFloor, speechLocale } from "../src/types.ts";
 
@@ -749,5 +760,76 @@ assert(
   !chromeSilenceSpeech.errors.some((message) => message.includes("(no-speech)")),
   "Android no-speech is not the iPhone note",
 );
+
+assert(uiLangFromTags(["pt-BR", "en-US"]) === "pt", "pt-BR browser language selects Portuguese UI");
+assert(uiLangFromTags(["es-MX"]) === "es", "es-MX browser language selects Spanish UI");
+assert(uiLangFromTags(["fr-FR", "de"]) === "en", "other browser languages fall back to English UI");
+assert(uiLangFromTags(undefined) === "en", "missing browser languages fall back to English UI");
+assert(getUiLang() === "en", "this environment starts in English");
+assert(t("createRoom") === "Create room on this phone", "English create-room label");
+assert(t("spokenQuestion") === "What language are you speaking?", "English spoken question");
+assert(speechLocale("en") === "en-US" && speechLocale("es") === "es-ES" && speechLocale("pt") === "pt-BR", "spoken locales stay independent of UI language");
+
+setUiLang("es");
+assert(getUiLang() === "es", "Spanish UI language is selected");
+assert(t("createRoom") === "Crear sala en este teléfono", "Spanish create-room label");
+assert(t("spokenQuestion") === "¿En qué idioma vas a hablar?", "Spanish spoken question");
+assert(t("watchQuestion") === "¿Qué idioma quieres ver?", "Spanish watch question");
+assert(t("join") === "Entrar", "Spanish join button");
+assert(t("send") === "Enviar", "Spanish send button");
+assert(t("start") === "Iniciar" && t("stop") === "Detener", "Spanish mic buttons");
+assert(displayCopy("Someone else is speaking") === "Otra persona está hablando", "Spanish floor-busy copy");
+assert(displayCopy("Someone else is speaking · Ada") === "Otra persona está hablando · Ada", "Spanish floor-busy keeps the name");
+assert(displaySpeaker("Host") === "Anfitrión" && displaySpeaker("Ada") === "Ada", "Spanish host label, custom names stay");
+assert(canonicalRole("Invitado", "Guest") === "Guest", "Spanish guest label stores as Guest");
+assert(canonicalRole("Ana", "Guest") === "Ana", "typed names are not rewritten");
+const esSetup = watchChipsHtml("data-setup-watch-lang");
+assert(esSetup.includes('data-setup-watch-lang="es"'), "Spanish setup watch chips keep their attribute");
+assert(esSetup.includes(">English<") || esSetup.includes(">English</span>"), "watch language names stay endonyms");
+assert(esSetup.includes("solo"), "Spanish watch scope");
+assert(!esSetup.includes('data-setup-watch="'), "setup watch chips do not reuse the container attribute");
+assert(speechLocale("pt") === "pt-BR", "Spanish UI does not change the Portuguese recognizer");
+
+setUiLang("pt");
+assert(t("createRoom") === "Criar sala neste telefone", "Portuguese create-room label");
+assert(t("spokenQuestion") === "Em que idioma você vai falar?", "Portuguese spoken question");
+assert(t("join") === "Entrar" && t("send") === "Enviar", "Portuguese join and send");
+assert(t("start") === "Iniciar" && t("stop") === "Parar", "Portuguese mic buttons");
+assert(t("uiLangHint").includes("Falado"), "Portuguese hint says Spoken still sets the microphone");
+assert(displayCopy("Could not reclaim the mic.") === "Não foi possível retomar o microfone.", "Portuguese reclaim error");
+const localeNote = localeRejectedMessage("pt-BR", "language-not-supported");
+assert(displayCopy(localeNote).includes("pt-BR") && displayCopy(localeNote).includes("Safari"), "Portuguese Safari rejection names the locale");
+assert(displayCopy(localeNote) !== localeNote, "Portuguese Safari rejection is translated");
+const ptEmpty = renderCaptionBoard({ layout: "en-es-pt", lines: [] }, null, ["en", "es", "pt"]);
+assert(ptEmpty.html.includes("Aguardando a fala ao vivo"), "Portuguese empty caption");
+assert(ptEmpty.html.includes("EN · English") && ptEmpty.html.includes("ES · Español") && ptEmpty.html.includes("PT · Português"), "pane headers stay language names");
+assert(ptEmpty.shown.join(",") === "en,es,pt", "watch panes do not follow the interface language");
+
+const memory = new Map();
+globalThis.localStorage = {
+  getItem(key) {
+    return memory.has(key) ? memory.get(key) : null;
+  },
+  setItem(key, value) {
+    memory.set(key, String(value));
+  },
+  removeItem(key) {
+    memory.delete(key);
+  },
+};
+setUiLang("pt");
+assert(localStorage.getItem(UI_LANG_STORAGE_KEY) === "pt", "Portuguese UI language is stored on the device");
+setUiLang("en");
+assert(getUiLang() === "en", "English UI language can be selected again");
+assert(localStorage.getItem(UI_LANG_STORAGE_KEY) === "en", "English UI language is stored on the device");
+assert(t("createRoom") === "Create room on this phone", "English labels return");
+assert(displayCopy("Someone else is speaking") === "Someone else is speaking", "English floor-busy copy returns");
+const enListening = renderCaptionBoard(
+  { layout: "en", lines: [], listening: true, floor: { holderId: "h", holderName: "Host" } },
+  null,
+  ["en"],
+);
+assert(enListening.html.includes("Listening…"), "English listening label returns");
+assert(enListening.html.includes('class="line-speaker">Host'), "English host label returns");
 
 console.log("OK route — lang= is TV-only, opt-in, and omitted from the combined TV link");

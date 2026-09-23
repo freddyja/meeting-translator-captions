@@ -152,6 +152,18 @@ async function main() {
   assert(appJs.includes("data-join-setup"), "join questions come before the caption board");
   assert(appJs.includes("What language are you speaking?"), "join asks spoken language first");
   assert(appJs.includes("What language do you want to watch?"), "join asks watch language first");
+  assert(appJs.includes("data-set-ui-lang"), "interface language switch");
+  assert(appJs.includes("mt-ui-lang"), "interface language is stored on the device");
+  assert(appJs.includes("Crear sala en este teléfono"), "Spanish create room");
+  assert(appJs.includes("Criar sala neste telefone"), "Portuguese create room");
+  assert(appJs.includes("¿En qué idioma vas a hablar?"), "Spanish spoken question");
+  assert(appJs.includes("Em que idioma você vai falar?"), "Portuguese spoken question");
+  assert(appJs.includes("Idioma de la interfaz"), "Spanish interface language name");
+  assert(appJs.includes("Idioma da interface"), "Portuguese interface language name");
+  assert(
+    appJs.includes("Labels on this device only. Spoken still sets the microphone language."),
+    "spoken stays separate from the interface language",
+  );
   assert(appJs.includes("data-join-continue"), "join setup has one continue button");
   assert(!appJs.includes("join-dock-pin"), "join does not pin the caption board over the dock");
   assert(!appJs.includes("--join-vvh"), "join does not lock to a measured viewport height");
@@ -182,6 +194,7 @@ async function main() {
   assert(appCss.includes("smart-view-source-chip"), "Smart View spoken language chip style");
   assert(appCss.includes("join-screen"), "guest join screen class");
   assert(appCss.includes("join-setup"), "join setup screen is styled");
+  assert(appCss.includes(".ui-lang"), "interface language control is styled");
   assert(
     appCss.includes(".screen[hidden]") &&
       appCss.includes(".join-setup[hidden]") &&
