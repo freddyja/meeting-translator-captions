@@ -644,11 +644,18 @@ export function applyI18n(root: ParentNode): void {
   });
 }
 
+/** English only, same as the app name and the designer credit. */
+const UI_LANG_TAGLINE =
+  "Break language barriers in your small groups. No equipment needed - works on any device.";
+
 export function uiLangSwitcherHtml(compact = false): string {
   const label = compact ? "" : `<p class="control-label" data-i18n="uiLangLabel"></p>`;
   const hint = compact ? "" : `<p class="hint ui-lang-hint" data-i18n="uiLangHint"></p>`;
+  // Compact chips sit in the in-room chrome beside the caption panes.
+  const tagline = compact ? "" : `<p class="ui-lang-tagline">${escapeHtml(UI_LANG_TAGLINE)}</p>`;
   return `
     <div class="ui-lang${compact ? " ui-lang-compact" : ""}" data-ui-lang-switch>
+      ${tagline}
       ${label}
       <div class="chips" role="group" data-i18n-aria="uiLangGroup">
         <button class="chip" type="button" data-set-ui-lang="en">English</button>
