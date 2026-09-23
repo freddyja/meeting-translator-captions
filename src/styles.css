@@ -1127,6 +1127,66 @@ button, input, select, textarea {
   gap: 0.75rem;
 }
 
+/* Interface language. Separate from Spoken (mic) and Watch (caption panes). */
+.ui-lang {
+  display: grid;
+  gap: 0.4rem;
+  width: 100%;
+  max-width: 28rem;
+}
+
+.ui-lang .control-label {
+  margin-bottom: 0;
+  color: var(--cream);
+  font-size: 0.82rem;
+}
+
+.ui-lang .chips {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ui-lang .chip {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+  padding-inline: 0.35rem;
+  font-weight: 600;
+}
+
+.ui-lang-hint {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.join-setup .ui-lang,
+.join-dock .ui-lang,
+.phone-screen .ui-lang {
+  max-width: none;
+}
+
+.ui-lang-compact {
+  width: auto;
+  max-width: none;
+}
+
+.ui-lang-compact .chips {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.ui-lang-compact .chip {
+  width: auto;
+  min-height: 48px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.95rem;
+}
+
+.tv-screen > .tv-top .ui-lang-compact .chip {
+  min-height: 44px;
+}
+
 .meeting-mode {
   display: grid;
   gap: 0.45rem;
