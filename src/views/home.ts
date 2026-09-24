@@ -12,7 +12,7 @@ import { goto } from "../router";
 
 export function mountHome(root: HTMLElement): () => void {
   root.innerHTML = `
-    <section class="screen home-screen">
+    <section class="screen home-screen entry-scene">
       ${brandBlock()}
       ${uiLangSwitcherHtml("home")}
       <button class="primary home-create" data-create type="button" data-i18n="createRoom"></button>
