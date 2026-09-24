@@ -1292,6 +1292,85 @@ button, input, select, textarea {
   line-height: 1.4;
 }
 
+/* Create and Join setup only. Live caption boards do not use this class. */
+.screen.entry-scene {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+  align-items: center;
+  background-color: #071014;
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(5, 12, 16, 0.84) 0%,
+      rgba(5, 12, 16, 0.72) 30%,
+      rgba(5, 12, 16, 0.5) 64%,
+      rgba(5, 12, 16, 0.58) 100%
+    ),
+    url("/bg-office-mics.webp");
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-size: cover, cover;
+}
+
+.entry-scene > * {
+  width: min(100%, 28rem);
+}
+
+.entry-scene .brand-text h1,
+.entry-scene .ui-lang-tagline,
+.entry-scene .brand-credit,
+.entry-scene .join-room,
+.entry-scene .join-setup-q legend,
+.entry-scene .home-fold > summary,
+.entry-scene .credit-footer,
+.entry-scene .ui-lang .control-label,
+.entry-scene .join-name,
+.entry-scene .ghost {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 16px rgba(0, 0, 0, 0.55);
+}
+
+.entry-scene .brand-credit,
+.entry-scene .ui-lang-tagline,
+.entry-scene .join-room,
+.entry-scene .join-setup-q legend,
+.entry-scene .home-fold > summary,
+.entry-scene .credit-footer,
+.entry-scene .ghost,
+.entry-scene .join-name,
+.entry-scene .field span {
+  color: #d7ebe8;
+}
+
+.entry-scene .chip {
+  background: rgba(6, 16, 20, 0.74);
+  border-color: rgba(231, 244, 242, 0.36);
+  color: #f4fffd;
+  backdrop-filter: blur(8px);
+}
+
+.entry-scene .chip.active {
+  background: rgba(43, 179, 163, 0.48);
+  border-color: #8ee0d4;
+  color: #f7fffd;
+}
+
+.entry-scene .secondary,
+.entry-scene .field input,
+.entry-scene .join-name input {
+  background: rgba(8, 18, 22, 0.84);
+  border-color: rgba(231, 244, 242, 0.3);
+  color: var(--cream);
+}
+
+.entry-scene .home-fold {
+  border-top-color: rgba(231, 244, 242, 0.22);
+}
+
+.entry-scene .primary {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
+}
+
 .ui-lang-compact {
   width: auto;
   max-width: none;

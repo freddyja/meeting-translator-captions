@@ -1,9 +1,10 @@
-const CACHE = "meeting-translator-v2";
+const CACHE = "meeting-translator-v3";
 const PRECACHE = [
   "/",
   "/index.html",
   "/favicon.svg",
   "/manifest.webmanifest",
+  "/bg-office-mics.webp",
   "/icon-192.png",
   "/icon-512.png",
   "/icon-192-maskable.png",
