@@ -22,6 +22,8 @@ const en = {
   uiLangLabel: "Interface",
   uiLangGroup: "Interface language",
   uiLangHint: "Labels on this device only. Spoken still sets the microphone language.",
+  uiLangTagline:
+    "Break language barriers in your small groups. No equipment needed - works on any device.",
   homeLede:
     "Live multilingual meeting captions. A phone captures the speaker; every phone and the TV show English, Spanish, and Portuguese windows.",
   createRoom: "Create room on this phone",
@@ -202,6 +204,8 @@ const es: Catalog = {
   uiLangLabel: "Idioma",
   uiLangGroup: "Idioma de la interfaz",
   uiLangHint: "Solo los textos en este dispositivo. Hablado sigue definiendo el idioma del micrófono.",
+  uiLangTagline:
+    "Rompe las barreras del idioma en tus grupos pequeños. No necesitas equipo - funciona en cualquier dispositivo.",
   homeLede:
     "Subtítulos en vivo para la reunión, en varios idiomas. Un teléfono captura a quien habla; cada teléfono y el TV muestran ventanas en inglés, español y portugués.",
   createRoom: "Crear sala en este teléfono",
@@ -381,6 +385,8 @@ const pt: Catalog = {
   uiLangLabel: "Idioma",
   uiLangGroup: "Idioma da interface",
   uiLangHint: "Só os textos neste aparelho. Falado continua definindo o idioma do microfone.",
+  uiLangTagline:
+    "Quebre as barreiras do idioma nos seus grupos pequenos. Não precisa de equipamento - funciona em qualquer aparelho.",
   homeLede:
     "Legendas ao vivo para a reunião, em vários idiomas. Um telefone captura quem fala; cada telefone e a TV mostram janelas em inglês, espanhol e português.",
   createRoom: "Criar sala neste telefone",
@@ -644,15 +650,11 @@ export function applyI18n(root: ParentNode): void {
   });
 }
 
-/** English only, same as the app name and the designer credit. */
-const UI_LANG_TAGLINE =
-  "Break language barriers in your small groups. No equipment needed - works on any device.";
-
 export function uiLangSwitcherHtml(compact = false): string {
   const label = compact ? "" : `<p class="control-label" data-i18n="uiLangLabel"></p>`;
   const hint = compact ? "" : `<p class="hint ui-lang-hint" data-i18n="uiLangHint"></p>`;
   // Compact chips sit in the in-room chrome beside the caption panes.
-  const tagline = compact ? "" : `<p class="ui-lang-tagline">${escapeHtml(UI_LANG_TAGLINE)}</p>`;
+  const tagline = compact ? "" : `<p class="ui-lang-tagline" data-i18n="uiLangTagline"></p>`;
   return `
     <div class="ui-lang${compact ? " ui-lang-compact" : ""}" data-ui-lang-switch>
       ${tagline}
