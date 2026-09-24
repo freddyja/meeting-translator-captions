@@ -7,6 +7,7 @@ import {
   t,
   UI_LANG_STORAGE_KEY,
   uiLangFromTags,
+  uiLangSwitcherHtml,
   watchChipsHtml,
 } from "../src/i18n.ts";
 import { joinSearch, parseRoute, parseTvLang, tvSearch } from "../src/router.ts";
@@ -804,6 +805,12 @@ const ptEmpty = renderCaptionBoard({ layout: "en-es-pt", lines: [] }, null, ["en
 assert(ptEmpty.html.includes("Aguardando a fala ao vivo"), "Portuguese empty caption");
 assert(ptEmpty.html.includes("EN · English") && ptEmpty.html.includes("ES · Español") && ptEmpty.html.includes("PT · Português"), "pane headers stay language names");
 assert(ptEmpty.shown.join(",") === "en,es,pt", "watch panes do not follow the interface language");
+const tvLang = uiLangSwitcherHtml("tv");
+assert(tvLang.includes(">EN<") && tvLang.includes(">ES<") && tvLang.includes(">PT<"), "TV language picker uses EN ES PT");
+assert(!tvLang.includes(">English<") && !tvLang.includes(">Español<") && !tvLang.includes(">Português<"), "TV language picker omits full names");
+assert(tvLang.includes("ui-lang-tv"), "TV language picker stays on one row");
+const hostLang = uiLangSwitcherHtml();
+assert(hostLang.includes(">English<") && hostLang.includes(">Español<") && hostLang.includes(">Português<"), "host interface language keeps full names");
 
 const memory = new Map();
 globalThis.localStorage = {

@@ -657,23 +657,38 @@ export function applyI18n(root: ParentNode): void {
  * full — tagline, label, chips, and the Spoken hint (host controls).
  * home — tagline above the label and chips. No hint yet; Spoken is not on this screen.
  * entry — label and chips only, for the post-QR join setup.
- * compact — chips only, beside in-room caption panes.
+ * compact — chips only, beside in-room caption panes. Full language names.
+ * tv — TV bar only. Visible labels are the codes EN, ES, and PT on one row.
  */
-export function uiLangSwitcherHtml(compact: boolean | "home" | "entry" = false): string {
-  const mode = compact === true ? "compact" : compact === "home" || compact === "entry" ? compact : "full";
+export function uiLangSwitcherHtml(compact: boolean | "home" | "entry" | "tv" = false): string {
+  const mode =
+    compact === true ? "compact" : compact === "home" || compact === "entry" || compact === "tv" ? compact : "full";
   const tagline =
     mode === "full" || mode === "home" ? `<p class="ui-lang-tagline" data-i18n="uiLangTagline"></p>` : "";
-  const label = mode === "compact" ? "" : `<p class="control-label" data-i18n="uiLangLabel"></p>`;
+  const label = mode === "compact" || mode === "tv" ? "" : `<p class="control-label" data-i18n="uiLangLabel"></p>`;
   const hint = mode === "full" ? `<p class="hint ui-lang-hint" data-i18n="uiLangHint"></p>` : "";
-  const extra = mode === "compact" ? " ui-lang-compact" : mode === "entry" ? " ui-lang-entry" : "";
+  const extra =
+    mode === "tv"
+      ? " ui-lang-compact ui-lang-tv"
+      : mode === "compact"
+        ? " ui-lang-compact"
+        : mode === "entry"
+          ? " ui-lang-entry"
+          : "";
+  const chips =
+    mode === "tv"
+      ? `<button class="chip" type="button" data-set-ui-lang="en" aria-label="English">EN</button>
+        <button class="chip" type="button" data-set-ui-lang="es" aria-label="Español">ES</button>
+        <button class="chip" type="button" data-set-ui-lang="pt" aria-label="Português">PT</button>`
+      : `<button class="chip" type="button" data-set-ui-lang="en">English</button>
+        <button class="chip" type="button" data-set-ui-lang="es">Español</button>
+        <button class="chip" type="button" data-set-ui-lang="pt">Português</button>`;
   return `
     <div class="ui-lang${extra}" data-ui-lang-switch>
       ${tagline}
       ${label}
       <div class="chips" role="group" data-i18n-aria="uiLangGroup">
-        <button class="chip" type="button" data-set-ui-lang="en">English</button>
-        <button class="chip" type="button" data-set-ui-lang="es">Español</button>
-        <button class="chip" type="button" data-set-ui-lang="pt">Português</button>
+        ${chips}
       </div>
       ${hint}
     </div>

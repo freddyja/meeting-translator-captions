@@ -306,24 +306,65 @@ button, input, select, textarea {
   grid-template-columns: 1fr 1fr 1fr;
 }
 
+/* Solid language cards. Same colors on the office photo and the solid TV page.
+   Body ink is at least ~7:1 on each fill; history and labels stay above ~6:1. */
 .window {
-  background: var(--bg-window);
-  border: 1px solid var(--line);
+  --pane-bg: #1a527f;
+  --pane-border: #9fd4fb;
+  --pane-ink: #f5fbff;
+  --pane-ink-dim: #d4ebf8;
+  --pane-accent: #cfe9ff;
+  background: var(--pane-bg);
+  border: 3px solid var(--pane-border);
   border-radius: 22px;
   padding: 1rem 1.15rem 1.2rem;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  color: var(--pane-ink);
   box-shadow: var(--shadow);
 }
 
+.window[data-lang="en"] {
+  --pane-bg: #1a527f;
+  --pane-border: #9fd4fb;
+  --pane-ink: #f5fbff;
+  --pane-ink-dim: #d4ebf8;
+  --pane-accent: #cfe9ff;
+}
+
+.window[data-lang="es"] {
+  --pane-bg: #7d4318;
+  --pane-border: #ffc48a;
+  --pane-ink: #fff8f2;
+  --pane-ink-dim: #ffe1cc;
+  --pane-accent: #ffe3ce;
+}
+
+.window[data-lang="pt"] {
+  --pane-bg: #156042;
+  --pane-border: #9ae6bf;
+  --pane-ink: #f4fff8;
+  --pane-ink-dim: #d8f6e6;
+  --pane-accent: #d4f8e4;
+}
+
 .window-label {
+  align-self: flex-start;
+  display: inline-block;
+  width: fit-content;
+  max-width: 100%;
   margin: 0 0 0.65rem;
-  color: var(--gold);
-  letter-spacing: 0.18em;
+  padding: 0.18rem 0.62rem;
+  border: 1px solid var(--pane-border);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--pane-accent);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   font-size: 0.78rem;
-  font-weight: 600;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .lines {
@@ -337,18 +378,20 @@ button, input, select, textarea {
 
 .line {
   margin: 0;
-  font-weight: 500;
-  line-height: 1.18;
-  color: var(--cream);
+  font-weight: 700;
+  line-height: 1.22;
+  color: var(--pane-ink);
   overflow-wrap: anywhere;
 }
 
 .line.faded {
-  color: var(--muted);
+  color: var(--pane-ink-dim);
+  font-weight: 600;
 }
 
 .line.interim {
-  color: #d7c4a8;
+  color: var(--pane-ink);
+  font-weight: 600;
   font-style: italic;
 }
 
@@ -357,7 +400,7 @@ button, input, select, textarea {
   max-width: 100%;
   margin: 0 0 0.16em;
   overflow: hidden;
-  color: var(--gold);
+  color: var(--pane-accent);
   font-style: normal;
   font-weight: 700;
   letter-spacing: 0.015em;
@@ -369,7 +412,7 @@ button, input, select, textarea {
 
 .line.faded .line-speaker {
   font-weight: 600;
-  opacity: 0.82;
+  opacity: 1;
 }
 
 .line-text {
@@ -383,7 +426,7 @@ button, input, select, textarea {
 
 .line.interim .line-speaker,
 .line.speaker-live .line-speaker {
-  color: var(--gold);
+  color: var(--pane-accent);
   font-style: normal;
   opacity: 1;
 }
@@ -412,7 +455,8 @@ button, input, select, textarea {
 }
 
 .empty-caption {
-  color: var(--muted);
+  color: var(--pane-ink-dim);
+  font-weight: 600;
   font-size: clamp(1.1rem, 2vw, 1.6rem);
 }
 
@@ -1381,8 +1425,8 @@ button, input, select, textarea {
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
 }
 
-/* Host phone and Smart View sit on the same photo. Caption panes stay on
-   dark cards so EN | ES | PT text does not pick up the sunset. */
+/* Host phone and Smart View sit on the same photo. Caption panes keep the
+   solid per-language cards from .window so the photo does not show through. */
 .phone-screen.scene-bg .brand-text h1,
 .phone-screen.scene-bg .brand-credit,
 .phone-screen.scene-bg .credit-footer,
@@ -1448,24 +1492,6 @@ button, input, select, textarea {
   color: #f4fffd;
 }
 
-.phone-screen.scene-bg .window {
-  background: rgba(6, 12, 16, 0.94);
-  border-color: rgba(231, 244, 242, 0.16);
-  backdrop-filter: blur(12px);
-}
-
-.phone-screen.scene-bg .line {
-  color: #f7fffd;
-}
-
-.phone-screen.scene-bg .line.faded {
-  color: #b7ccc8;
-}
-
-.phone-screen.scene-bg .line.interim {
-  color: #d7c4a8;
-}
-
 .phone-screen.scene-bg .primary {
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
 }
@@ -1499,6 +1525,26 @@ button, input, select, textarea {
 
 .tv-screen > .tv-top .ui-lang-compact .chip {
   min-height: 44px;
+}
+
+/* TV interface picker: EN ES PT stay on one row. Phone chips keep full names. */
+.ui-lang-tv {
+  flex: none;
+}
+
+.ui-lang-tv .chips {
+  display: flex;
+  flex-wrap: nowrap;
+  width: max-content;
+  max-width: 100%;
+}
+
+.ui-lang-tv .chip {
+  width: auto;
+  flex: none;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+  padding-inline: 0.75rem;
 }
 
 .meeting-mode {
