@@ -10,7 +10,7 @@ Use this on the day of the meeting. The public URL is the Render service for **t
 
 ## Create the room
 
-1. On the host phone, open Meeting Translator and tap **Create room on this phone**.
+1. On the host phone, open Meeting Translator and tap **Create room**.
 2. Note the 4-letter room code. The phone shows **EN | ES | PT** caption panes. On a narrow phone the page scrolls, so Spoken language, TV layout, Smart View, and Join on phones stay reachable.
 3. Pick **Spoken language** (EN, ES, or PT) before you speak. Switching language while the mic is on retargets speech recognition. On iPhone the first recognizer is reused and only its `lang` changes (`en-US`, `es-ES`, `pt-BR`). The Spoken choice writes that language before Start.
 

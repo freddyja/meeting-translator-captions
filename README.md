@@ -18,7 +18,7 @@ Live multilingual meeting captions (English / Spanish / Portuguese). A phone cap
 
 ## Create a room, join, and show the TV
 
-1. On the host phone, open the public HTTPS URL and tap **Create room on this phone**.
+1. On the host phone, open the public HTTPS URL and tap **Create room**.
 2. Tap **Join on phones** and let everyone scan the QR (Android Chrome or iPhone Safari). Each person answers spoken language and watch language, then taps **Join**. Only one mic is live; the host can reclaim it.
 3. Tap **Send to TV**. On the TV browser, scan that QR or paste the link. You should see **EN | ES | PT**.
 4. If the TV can only mirror the phone, tap **Smart View mode**, then open system Smart View → My TV. Exit the mode to get the controls back. The mic does not stop when you enter or leave it.

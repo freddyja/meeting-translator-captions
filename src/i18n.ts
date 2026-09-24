@@ -26,7 +26,8 @@ const en = {
     "Break language barriers in your small groups. No equipment needed - works on any device.",
   homeLede:
     "Live multilingual meeting captions. A phone captures the speaker; every phone and the TV show English, Spanish, and Portuguese windows.",
-  createRoom: "Create room on this phone",
+  createRoom: "Create room",
+  haveRoomCode: "Have a room code?",
   roomCode: "Room code",
   openTvWindows: "Open TV windows",
   joinThisPhone: "Join on this phone",
@@ -45,7 +46,7 @@ const en = {
   installApp: "Install app",
   installStandaloneCopy:
     "This is the installed Meeting Translator app. Create a room here, then open the TV link on the meeting TV.",
-  installStandalone1: "Tap <strong>Create room on this phone</strong>.",
+  installStandalone1: "Tap <strong>Create room</strong>.",
   installStandalone2:
     "Use <strong>Send to TV</strong> (QR / TV browser) or <strong>Smart View mode</strong> (mirror captions from the phone quick panel).",
   installStandalone3:
@@ -208,7 +209,8 @@ const es: Catalog = {
     "Rompe las barreras del idioma en tus grupos pequeños. No necesitas equipo - funciona en cualquier dispositivo.",
   homeLede:
     "Subtítulos en vivo para la reunión, en varios idiomas. Un teléfono captura a quien habla; cada teléfono y el TV muestran ventanas en inglés, español y portugués.",
-  createRoom: "Crear sala en este teléfono",
+  createRoom: "Crear sala",
+  haveRoomCode: "¿Tienes un código de sala?",
   roomCode: "Código de la sala",
   openTvWindows: "Abrir ventanas del TV",
   joinThisPhone: "Entrar en este teléfono",
@@ -227,7 +229,7 @@ const es: Catalog = {
   installApp: "Instalar app",
   installStandaloneCopy:
     "Esta es la app Meeting Translator instalada. Crea una sala aquí y luego abre el enlace del TV en el televisor de la reunión.",
-  installStandalone1: "Toca <strong>Crear sala en este teléfono</strong>.",
+  installStandalone1: "Toca <strong>Crear sala</strong>.",
   installStandalone2:
     "Usa <strong>Enviar al TV</strong> (QR / navegador del TV) o <strong>Modo Smart View</strong> (refleja los subtítulos desde el panel rápido del teléfono).",
   installStandalone3:
@@ -389,7 +391,8 @@ const pt: Catalog = {
     "Quebre as barreiras do idioma nos seus grupos pequenos. Não precisa de equipamento - funciona em qualquer aparelho.",
   homeLede:
     "Legendas ao vivo para a reunião, em vários idiomas. Um telefone captura quem fala; cada telefone e a TV mostram janelas em inglês, espanhol e português.",
-  createRoom: "Criar sala neste telefone",
+  createRoom: "Criar sala",
+  haveRoomCode: "Tem um código da sala?",
   roomCode: "Código da sala",
   openTvWindows: "Abrir janelas da TV",
   joinThisPhone: "Entrar neste telefone",
@@ -408,7 +411,7 @@ const pt: Catalog = {
   installApp: "Instalar app",
   installStandaloneCopy:
     "Este é o app Meeting Translator instalado. Crie uma sala aqui e depois abra o link da TV na televisão da reunião.",
-  installStandalone1: "Toque em <strong>Criar sala neste telefone</strong>.",
+  installStandalone1: "Toque em <strong>Criar sala</strong>.",
   installStandalone2:
     "Use <strong>Enviar para a TV</strong> (QR / navegador da TV) ou <strong>Modo Smart View</strong> (espelha as legendas pelo painel rápido do telefone).",
   installStandalone3:
@@ -650,13 +653,21 @@ export function applyI18n(root: ParentNode): void {
   });
 }
 
-export function uiLangSwitcherHtml(compact = false): string {
-  const label = compact ? "" : `<p class="control-label" data-i18n="uiLangLabel"></p>`;
-  const hint = compact ? "" : `<p class="hint ui-lang-hint" data-i18n="uiLangHint"></p>`;
-  // Compact chips sit in the in-room chrome beside the caption panes.
-  const tagline = compact ? "" : `<p class="ui-lang-tagline" data-i18n="uiLangTagline"></p>`;
+/**
+ * full — tagline, label, chips, and the Spoken hint (host controls).
+ * home — tagline above the label and chips. No hint yet; Spoken is not on this screen.
+ * entry — label and chips only, for the post-QR join setup.
+ * compact — chips only, beside in-room caption panes.
+ */
+export function uiLangSwitcherHtml(compact: boolean | "home" | "entry" = false): string {
+  const mode = compact === true ? "compact" : compact === "home" || compact === "entry" ? compact : "full";
+  const tagline =
+    mode === "full" || mode === "home" ? `<p class="ui-lang-tagline" data-i18n="uiLangTagline"></p>` : "";
+  const label = mode === "compact" ? "" : `<p class="control-label" data-i18n="uiLangLabel"></p>`;
+  const hint = mode === "full" ? `<p class="hint ui-lang-hint" data-i18n="uiLangHint"></p>` : "";
+  const extra = mode === "compact" ? " ui-lang-compact" : mode === "entry" ? " ui-lang-entry" : "";
   return `
-    <div class="ui-lang${compact ? " ui-lang-compact" : ""}" data-ui-lang-switch>
+    <div class="ui-lang${extra}" data-ui-lang-switch>
       ${tagline}
       ${label}
       <div class="chips" role="group" data-i18n-aria="uiLangGroup">
