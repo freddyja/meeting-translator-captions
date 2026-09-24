@@ -76,7 +76,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
   };
 
   root.innerHTML = `
-    <section class="screen phone-screen">
+    <section class="screen phone-screen scene-bg">
       <div class="phone-top">
         ${brandBlock()}
         <div class="phone-status">

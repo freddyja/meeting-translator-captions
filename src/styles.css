@@ -1292,25 +1292,35 @@ button, input, select, textarea {
   line-height: 1.4;
 }
 
-/* Create and Join setup only. Live caption boards do not use this class. */
+/* Conference-room photo: Create, Join setup, the host phone, and Smart View.
+   The TV browser page is a separate screen and stays on the solid theme. */
+.scene-bg {
+  --scene-scrim: linear-gradient(
+    180deg,
+    rgba(5, 12, 16, 0.84) 0%,
+    rgba(5, 12, 16, 0.72) 30%,
+    rgba(5, 12, 16, 0.5) 64%,
+    rgba(5, 12, 16, 0.58) 100%
+  );
+  --scene-photo: url("/bg-office-mics.webp");
+  background-color: #071014;
+  background-image: var(--scene-scrim), var(--scene-photo);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-size: cover, cover;
+}
+
+/* The host page scrolls. Pin both layers to the viewport so the photo is not
+   stretched down the page. Smart View is nested here and stays transparent. */
+.phone-screen.scene-bg {
+  background-attachment: fixed, fixed;
+}
+
 .screen.entry-scene {
   width: 100%;
   max-width: none;
   margin-inline: 0;
   align-items: center;
-  background-color: #071014;
-  background-image:
-    linear-gradient(
-      180deg,
-      rgba(5, 12, 16, 0.84) 0%,
-      rgba(5, 12, 16, 0.72) 30%,
-      rgba(5, 12, 16, 0.5) 64%,
-      rgba(5, 12, 16, 0.58) 100%
-    ),
-    url("/bg-office-mics.webp");
-  background-repeat: no-repeat, no-repeat;
-  background-position: center, center;
-  background-size: cover, cover;
 }
 
 .entry-scene > * {
@@ -1369,6 +1379,105 @@ button, input, select, textarea {
 
 .entry-scene .primary {
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
+}
+
+/* Host phone and Smart View sit on the same photo. Caption panes stay on
+   dark cards so EN | ES | PT text does not pick up the sunset. */
+.phone-screen.scene-bg .brand-text h1,
+.phone-screen.scene-bg .brand-credit,
+.phone-screen.scene-bg .credit-footer,
+.phone-screen.scene-bg .control-label,
+.phone-screen.scene-bg .hint,
+.phone-screen.scene-bg .ghost,
+.phone-screen.scene-bg .floor-banner,
+.phone-screen.scene-bg .smart-view-tip,
+.phone-screen.scene-bg .smart-view-source-label,
+.phone-screen.scene-bg .tv-meta {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 16px rgba(0, 0, 0, 0.55);
+}
+
+.phone-screen.scene-bg .brand-credit,
+.phone-screen.scene-bg .credit-footer,
+.phone-screen.scene-bg .control-label,
+.phone-screen.scene-bg .hint,
+.phone-screen.scene-bg .ghost,
+.phone-screen.scene-bg .smart-view-source-label {
+  color: #d7ebe8;
+}
+
+.phone-screen.scene-bg .chip,
+.phone-screen.scene-bg .room-pill,
+.phone-screen.scene-bg .status-pill {
+  background: rgba(6, 16, 20, 0.74);
+  border-color: rgba(231, 244, 242, 0.36);
+  color: #f4fffd;
+  backdrop-filter: blur(8px);
+}
+
+.phone-screen.scene-bg .chip.active {
+  background: rgba(43, 179, 163, 0.48);
+  border-color: #8ee0d4;
+  color: #f7fffd;
+}
+
+.phone-screen.scene-bg .meeting-mode .chip.active {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(232, 184, 109, 0.22);
+}
+
+.phone-screen.scene-bg .secondary,
+.phone-screen.scene-bg .typed-caption input,
+.phone-screen.scene-bg .smart-view-mic,
+.phone-screen.scene-bg .preview {
+  background: rgba(8, 18, 22, 0.88);
+  border-color: rgba(231, 244, 242, 0.3);
+  color: var(--cream);
+  backdrop-filter: blur(8px);
+}
+
+.phone-screen.scene-bg .mic {
+  background: rgba(8, 18, 22, 0.92);
+  border-color: rgba(231, 244, 242, 0.28);
+}
+
+.phone-screen.scene-bg .mic.hot,
+.phone-screen.scene-bg .smart-view-mic.hot {
+  background: radial-gradient(circle at 50% 40%, #3ecfb8, var(--accent) 72%);
+  border-color: #8fe0d4;
+  color: #f4fffd;
+}
+
+.phone-screen.scene-bg .window {
+  background: rgba(6, 12, 16, 0.94);
+  border-color: rgba(231, 244, 242, 0.16);
+  backdrop-filter: blur(12px);
+}
+
+.phone-screen.scene-bg .line {
+  color: #f7fffd;
+}
+
+.phone-screen.scene-bg .line.faded {
+  color: #b7ccc8;
+}
+
+.phone-screen.scene-bg .line.interim {
+  color: #d7c4a8;
+}
+
+.phone-screen.scene-bg .primary {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
+}
+
+.phone-screen.scene-bg .smart-view-dock {
+  background: rgba(7, 16, 20, 0.82);
+  border-top-color: rgba(231, 244, 242, 0.18);
+  backdrop-filter: blur(14px);
+}
+
+.phone-screen.scene-bg .phone-side {
+  border-top-color: rgba(231, 244, 242, 0.22);
 }
 
 .ui-lang-compact {

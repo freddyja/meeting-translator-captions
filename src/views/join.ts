@@ -86,7 +86,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     });
 
   root.innerHTML = `
-    <section class="screen join-setup entry-scene" data-join-setup>
+    <section class="screen join-setup entry-scene scene-bg" data-join-setup>
       ${brandBlock(true)}
       <p class="join-room"><span data-i18n="roomWord"></span> <strong>${escapeHtml(room)}</strong></p>
       ${uiLangSwitcherHtml("entry")}
