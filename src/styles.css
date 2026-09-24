@@ -1527,6 +1527,26 @@ button, input, select, textarea {
   min-height: 44px;
 }
 
+/* TV interface picker: EN ES PT stay on one row. Phone chips keep full names. */
+.ui-lang-tv {
+  flex: none;
+}
+
+.ui-lang-tv .chips {
+  display: flex;
+  flex-wrap: nowrap;
+  width: max-content;
+  max-width: 100%;
+}
+
+.ui-lang-tv .chip {
+  width: auto;
+  flex: none;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+  padding-inline: 0.75rem;
+}
+
 .meeting-mode {
   display: grid;
   gap: 0.45rem;

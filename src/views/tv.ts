@@ -20,7 +20,7 @@ export function mountTv(root: HTMLElement, room: string, lang?: Lang): () => voi
           <div class="room-pill"><span data-i18n="roomWord"></span> <strong data-room></strong></div>
           <div class="room-pill" data-lang-pill hidden></div>
           <div class="status-pill"><span class="dot" data-dot></span><span data-status></span></div>
-          ${uiLangSwitcherHtml(true)}
+          ${uiLangSwitcherHtml("tv")}
           <button class="ghost" data-home type="button" data-i18n="leave"></button>
         </div>
       </div>
