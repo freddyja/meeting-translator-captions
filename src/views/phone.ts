@@ -120,13 +120,13 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
               <div class="chips" data-source></div>
             </div>
             <div>
-              <p class="control-label" data-i18n="tvLayout"></p>
+              <p class="control-label" data-i18n="watchLanguage"></p>
               <div class="chips" data-layouts></div>
             </div>
             <div class="row-actions tv-path-actions">
-              <button class="primary send-tv-btn" data-send-tv type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="send-tv-dialog" data-i18n="sendToTv" data-i18n-aria="sendToTvAria"></button>
-              <button class="secondary smart-view-btn" data-smart-view-mode type="button" aria-pressed="false" data-i18n="smartViewMode" data-i18n-aria="smartViewAria"></button>
               <button class="secondary join-phones-btn" data-join-phones type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="join-phones-dialog" data-i18n="joinOnPhones" data-i18n-aria="joinPhonesAria"></button>
+              <button class="primary smart-view-btn" data-smart-view-mode type="button" aria-pressed="false" data-i18n="smartViewMode" data-i18n-aria="smartViewAria"></button>
+              <button class="secondary send-tv-btn" data-send-tv type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="send-tv-dialog" data-i18n="sendToTv" data-i18n-aria="sendToTvAria"></button>
             </div>
             <div class="row-actions">
               <button class="ghost" data-clear type="button" data-i18n="clearWindows"></button>

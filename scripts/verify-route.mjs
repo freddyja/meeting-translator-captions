@@ -14,7 +14,7 @@ import { joinSearch, parseRoute, parseTvLang, tvSearch } from "../src/router.ts"
 import { detectSpeechCapability, isAppleMobile } from "../src/stt/capability.ts";
 import { createWebSpeechProvider, localeRejectedMessage } from "../src/stt/web-speech.ts";
 import { renderCaptionBoard } from "../src/views/caption-board.ts";
-import { captionSpeakerName, isWatchLang, keepsLocalCaptions, langsForLayout, langsForWatch, lostFloor, reconcileFloor, speechLocale } from "../src/types.ts";
+import { LAYOUTS, captionSpeakerName, isWatchLang, keepsLocalCaptions, langsForLayout, langsForWatch, lostFloor, reconcileFloor, speechLocale } from "../src/types.ts";
 
 function assert(cond, message) {
   if (!cond) throw new Error(message);
@@ -79,6 +79,19 @@ assert(joinSearch("ABCD") === "view=join&room=ABCD", "guest join query");
 
 same(langsForLayout("en-es-pt"), ["en", "es", "pt"], "room layout all three unchanged");
 same(langsForLayout("es"), ["es"], "room layout es unchanged");
+same(langsForLayout("en-es"), ["en", "es"], "pair layout still paints two panes");
+same(langsForLayout("en-pt"), ["en", "pt"], "en-pt layout still paints two panes");
+same(langsForLayout("es-pt"), ["es", "pt"], "es-pt layout still paints two panes");
+same(
+  LAYOUTS.map((item) => item.id),
+  ["en", "es", "pt", "en-es-pt"],
+  "host watch chips are singles plus EN/ES/PT",
+);
+same(
+  LAYOUTS.map((item) => item.label),
+  ["English", "Español", "Português", "EN | ES | PT"],
+  "host watch chips keep full names and the triple",
+);
 same(langsForWatch("all"), ["en", "es", "pt"], "watch all is the three-pane board");
 same(langsForWatch("en"), ["en"], "watch en is one pane");
 same(langsForWatch("es"), ["es"], "watch es is one pane");

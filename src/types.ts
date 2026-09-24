@@ -57,20 +57,32 @@ export const LANG_SHORT: Record<Lang, string> = {
   pt: "PT",
 };
 
+/** Pane sets for every layout id, including pair layouts rooms may already be using. */
+const LAYOUT_LANGS: Record<Layout, Lang[]> = {
+  en: ["en"],
+  es: ["es"],
+  pt: ["pt"],
+  "en-es": ["en", "es"],
+  "en-pt": ["en", "pt"],
+  "es-pt": ["es", "pt"],
+  "en-es-pt": ["en", "es", "pt"],
+};
+
+/**
+ * Host Watch-language chips. Pair layouts (EN | ES, EN | PT, ES | PT) stay valid
+ * for caption panes and the relay, but they are not offered on Create room.
+ */
 export const LAYOUTS: { id: Layout; label: string; langs: Lang[] }[] = [
-  { id: "en", label: "English", langs: ["en"] },
-  { id: "es", label: "Español", langs: ["es"] },
-  { id: "pt", label: "Português", langs: ["pt"] },
-  { id: "en-es", label: "EN | ES", langs: ["en", "es"] },
-  { id: "en-pt", label: "EN | PT", langs: ["en", "pt"] },
-  { id: "es-pt", label: "ES | PT", langs: ["es", "pt"] },
-  { id: "en-es-pt", label: "EN | ES | PT", langs: ["en", "es", "pt"] },
+  { id: "en", label: "English", langs: LAYOUT_LANGS.en },
+  { id: "es", label: "Español", langs: LAYOUT_LANGS.es },
+  { id: "pt", label: "Português", langs: LAYOUT_LANGS.pt },
+  { id: "en-es-pt", label: "EN | ES | PT", langs: LAYOUT_LANGS["en-es-pt"] },
 ];
 
 export const MAX_LINES = 8;
 
 export function langsForLayout(layout: Layout): Lang[] {
-  return LAYOUTS.find((item) => item.id === layout)?.langs ?? ["en", "es", "pt"];
+  return LAYOUT_LANGS[layout] ?? ["en", "es", "pt"];
 }
 
 /** Panes a join phone shows for its Watch preference. Independent of the room layout. */

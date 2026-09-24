@@ -130,6 +130,18 @@ async function main() {
   assert(appJs.includes("Reclaim mic"), "host can reclaim the mic");
   assert(appJs.includes("view=join"), "guest join query");
   assert(appJs.includes("Spoken language"), "spoken language chips");
+  assert(appJs.includes("Watch language"), "host watch language label");
+  assert(appJs.includes("Idioma para ver"), "watch language in Spanish and Portuguese");
+  assert(!appJs.includes("TV layout"), "TV layout label is gone");
+  assert(!appJs.includes("Diseño del TV"), "Spanish TV layout label is gone");
+  assert(!appJs.includes("Layout da TV"), "Portuguese TV layout label is gone");
+  assert(appJs.includes('class="primary smart-view-btn"'), "Smart View is the highlighted action");
+  assert(appJs.includes('class="secondary send-tv-btn"'), "Send to TV stays available without the highlight");
+  assert(
+    appJs.indexOf('class="secondary join-phones-btn"') < appJs.indexOf('class="primary smart-view-btn"') &&
+      appJs.indexOf('class="primary smart-view-btn"') < appJs.indexOf('class="secondary send-tv-btn"'),
+    "display actions are Join on phones, Smart View, then Send to TV",
+  );
   assert(appJs.includes("data-watch"), "join Watch preference");
   assert(appJs.includes("data-watch-box"), "join Watch control group");
   assert(appJs.includes("English only"), "watch English only");
