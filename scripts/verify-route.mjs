@@ -766,13 +766,13 @@ assert(uiLangFromTags(["es-MX"]) === "es", "es-MX browser language selects Spani
 assert(uiLangFromTags(["fr-FR", "de"]) === "en", "other browser languages fall back to English UI");
 assert(uiLangFromTags(undefined) === "en", "missing browser languages fall back to English UI");
 assert(getUiLang() === "en", "this environment starts in English");
-assert(t("createRoom") === "Create room on this phone", "English create-room label");
+assert(t("createRoom") === "Create room", "English create-room label");
 assert(t("spokenQuestion") === "What language are you speaking?", "English spoken question");
 assert(speechLocale("en") === "en-US" && speechLocale("es") === "es-ES" && speechLocale("pt") === "pt-BR", "spoken locales stay independent of UI language");
 
 setUiLang("es");
 assert(getUiLang() === "es", "Spanish UI language is selected");
-assert(t("createRoom") === "Crear sala en este teléfono", "Spanish create-room label");
+assert(t("createRoom") === "Crear sala", "Spanish create-room label");
 assert(t("spokenQuestion") === "¿En qué idioma vas a hablar?", "Spanish spoken question");
 assert(t("watchQuestion") === "¿Qué idioma quieres ver?", "Spanish watch question");
 assert(t("join") === "Entrar", "Spanish join button");
@@ -791,7 +791,7 @@ assert(!esSetup.includes('data-setup-watch="'), "setup watch chips do not reuse 
 assert(speechLocale("pt") === "pt-BR", "Spanish UI does not change the Portuguese recognizer");
 
 setUiLang("pt");
-assert(t("createRoom") === "Criar sala neste telefone", "Portuguese create-room label");
+assert(t("createRoom") === "Criar sala", "Portuguese create-room label");
 assert(t("spokenQuestion") === "Em que idioma você vai falar?", "Portuguese spoken question");
 assert(t("join") === "Entrar" && t("send") === "Enviar", "Portuguese join and send");
 assert(t("start") === "Iniciar" && t("stop") === "Parar", "Portuguese mic buttons");
@@ -822,7 +822,7 @@ assert(localStorage.getItem(UI_LANG_STORAGE_KEY) === "pt", "Portuguese UI langua
 setUiLang("en");
 assert(getUiLang() === "en", "English UI language can be selected again");
 assert(localStorage.getItem(UI_LANG_STORAGE_KEY) === "en", "English UI language is stored on the device");
-assert(t("createRoom") === "Create room on this phone", "English labels return");
+assert(t("createRoom") === "Create room", "English labels return");
 assert(displayCopy("Someone else is speaking") === "Someone else is speaking", "English floor-busy copy returns");
 const enListening = renderCaptionBoard(
   { layout: "en", lines: [], listening: true, floor: { holderId: "h", holderName: "Host" } },

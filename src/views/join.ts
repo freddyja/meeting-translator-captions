@@ -88,21 +88,20 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   root.innerHTML = `
     <section class="screen join-setup" data-join-setup>
       ${brandBlock(true)}
-      ${uiLangSwitcherHtml()}
-      <p class="lede join-setup-lead" data-setup-lead></p>
-      <fieldset class="join-setup-q">
-        <legend id="join-spoken-q" data-i18n="spokenQuestion"></legend>
-        <div class="chips" data-setup-source role="group" aria-labelledby="join-spoken-q"></div>
-      </fieldset>
-      <fieldset class="join-setup-q">
-        <legend id="join-watch-q" data-i18n="watchQuestion"></legend>
-        <div class="chips join-setup-watch" data-setup-watch role="group" aria-labelledby="join-watch-q"></div>
-      </fieldset>
-      <p class="hint" data-i18n="spokenWatchHint"></p>
+      <p class="join-room"><span data-i18n="roomWord"></span> <strong>${escapeHtml(room)}</strong></p>
+      ${uiLangSwitcherHtml("entry")}
       <label class="join-name">
         <span data-i18n="yourName"></span>
         <input data-setup-name maxlength="24" autocomplete="name" data-i18n-placeholder="optional" enterkeyhint="done" />
       </label>
+      <fieldset class="join-setup-q">
+        <legend id="join-spoken-q" data-i18n="spokenShort"></legend>
+        <div class="chips" data-setup-source role="group" aria-labelledby="join-spoken-q"></div>
+      </fieldset>
+      <fieldset class="join-setup-q">
+        <legend id="join-watch-q" data-i18n="watch"></legend>
+        <div class="chips join-setup-watch" data-setup-watch role="group" aria-labelledby="join-watch-q"></div>
+      </fieldset>
       <button class="primary join-setup-go" data-join-continue type="button" data-i18n="join"></button>
       <button class="ghost" data-setup-home type="button" data-i18n="leave"></button>
       ${creditFooter()}
@@ -177,7 +176,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   setupName.value = displayName === "Guest" ? "" : displayName;
   setupSource.innerHTML = LANGS.map(
     (lang) =>
-      `<button class="chip" type="button" data-setup-lang="${lang}" aria-pressed="false">${LANG_SHORT[lang]} ${LANG_LABEL[lang]}</button>`,
+      `<button class="chip" type="button" data-setup-lang="${lang}" aria-pressed="false">${LANG_LABEL[lang]}</button>`,
   ).join("");
 
   const els = {
@@ -504,11 +503,6 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   window.addEventListener("orientationchange", onOrientationChange);
   syncOrientation();
 
-  const paintLead = () => {
-    const lead = root.querySelector("[data-setup-lead]") as HTMLElement;
-    lead.innerHTML = t("joinSetupLead", { room: escapeHtml(room) });
-  };
-
   const paintWatch = () => {
     watchBox.innerHTML = watchChipsHtml("data-watch");
     setupWatch.innerHTML = watchChipsHtml("data-setup-watch-lang");
@@ -528,7 +522,6 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   };
 
   const onUiLang = () => {
-    paintLead();
     paintWatch();
     if (isDefaultRole(nameInput.value)) nameInput.value = displayRole("Guest");
     if (entered) renderDynamic();
@@ -632,7 +625,6 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   setupContinue.addEventListener("click", enterRoom);
   root.querySelector("[data-setup-home]")?.addEventListener("click", onSetupHome);
   const unbindLang = bindUiLang(root, onUiLang);
-  paintLead();
   paintWatch();
   paintSetup();
 

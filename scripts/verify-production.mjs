@@ -154,8 +154,9 @@ async function main() {
   assert(appJs.includes("What language do you want to watch?"), "join asks watch language first");
   assert(appJs.includes("data-set-ui-lang"), "interface language switch");
   assert(appJs.includes("mt-ui-lang"), "interface language is stored on the device");
-  assert(appJs.includes("Crear sala en este teléfono"), "Spanish create room");
-  assert(appJs.includes("Criar sala neste telefone"), "Portuguese create room");
+  assert(appJs.includes("Crear sala"), "Spanish create room");
+  assert(appJs.includes("Criar sala"), "Portuguese create room");
+  assert(appJs.includes("Have a room code?"), "room code stays available under Create");
   assert(appJs.includes("¿En qué idioma vas a hablar?"), "Spanish spoken question");
   assert(appJs.includes("Em que idioma você vai falar?"), "Portuguese spoken question");
   assert(appJs.includes("Idioma de la interfaz"), "Spanish interface language name");
