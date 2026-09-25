@@ -1608,6 +1608,20 @@ button, input, select, textarea {
   scroll-margin-top: 1.25rem;
 }
 
+.night-checklist {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
+.night-checklist h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
