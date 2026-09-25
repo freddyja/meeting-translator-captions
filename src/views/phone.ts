@@ -107,7 +107,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
           </div>
 
           <div class="controls">
-            ${uiLangSwitcherHtml()}
+            <p class="ui-lang-tagline" data-i18n="uiLangTagline"></p>
             <div class="meeting-mode">
               <p class="control-label" data-i18n="meetingMode"></p>
               <button class="chip" data-offline-mode type="button" aria-pressed="false" data-i18n="offlineLocal" data-i18n-aria="offlineAria"></button>

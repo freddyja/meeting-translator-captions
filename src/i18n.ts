@@ -21,7 +21,6 @@ export type UiLang = "en" | "es" | "pt";
 const en = {
   uiLangLabel: "Interface",
   uiLangGroup: "Interface language",
-  uiLangHint: "Labels on this device only. Spoken still sets the microphone language.",
   uiLangTagline:
     "Break language barriers in your small groups. No equipment needed - works on any device.",
   homeLede:
@@ -204,7 +203,6 @@ type Catalog = { [K in MessageKey]: string };
 const es: Catalog = {
   uiLangLabel: "Idioma",
   uiLangGroup: "Idioma de la interfaz",
-  uiLangHint: "Solo los textos en este dispositivo. Hablado sigue definiendo el idioma del micrófono.",
   uiLangTagline:
     "Rompe las barreras del idioma en tus grupos pequeños. No necesitas equipo - funciona en cualquier dispositivo.",
   homeLede:
@@ -386,7 +384,6 @@ const es: Catalog = {
 const pt: Catalog = {
   uiLangLabel: "Idioma",
   uiLangGroup: "Idioma da interface",
-  uiLangHint: "Só os textos neste aparelho. Falado continua definindo o idioma do microfone.",
   uiLangTagline:
     "Quebre as barreiras do idioma nos seus grupos pequenos. Não precisa de equipamento - funciona em qualquer aparelho.",
   homeLede:
@@ -654,19 +651,18 @@ export function applyI18n(root: ParentNode): void {
 }
 
 /**
- * full — tagline, label, chips, and the Spoken hint (host controls).
- * home — tagline above the label and chips. No hint yet; Spoken is not on this screen.
+ * home — tagline above the label and chips on the Create entry screen.
  * entry — label and chips only, for the post-QR join setup.
  * compact — chips only, beside in-room caption panes. Full language names.
  * tv — TV bar only. Visible labels are the codes EN, ES, and PT on one row.
+ *
+ * The host phone after Create room does not render this control. That screen
+ * still follows `mt-ui-lang` chosen on Create or Join.
  */
-export function uiLangSwitcherHtml(compact: boolean | "home" | "entry" | "tv" = false): string {
-  const mode =
-    compact === true ? "compact" : compact === "home" || compact === "entry" || compact === "tv" ? compact : "full";
-  const tagline =
-    mode === "full" || mode === "home" ? `<p class="ui-lang-tagline" data-i18n="uiLangTagline"></p>` : "";
+export function uiLangSwitcherHtml(compact: true | "home" | "entry" | "tv"): string {
+  const mode = compact === true ? "compact" : compact;
+  const tagline = mode === "home" ? `<p class="ui-lang-tagline" data-i18n="uiLangTagline"></p>` : "";
   const label = mode === "compact" || mode === "tv" ? "" : `<p class="control-label" data-i18n="uiLangLabel"></p>`;
-  const hint = mode === "full" ? `<p class="hint ui-lang-hint" data-i18n="uiLangHint"></p>` : "";
   const extra =
     mode === "tv"
       ? " ui-lang-compact ui-lang-tv"
@@ -690,7 +686,6 @@ export function uiLangSwitcherHtml(compact: boolean | "home" | "entry" | "tv" = 
       <div class="chips" role="group" data-i18n-aria="uiLangGroup">
         ${chips}
       </div>
-      ${hint}
     </div>
   `;
 }
