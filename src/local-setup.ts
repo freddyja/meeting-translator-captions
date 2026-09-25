@@ -19,6 +19,18 @@ export function localSetupInnerHtml(opts?: { heading?: boolean }): string {
     <p class="hint" data-this-origin-wrap hidden><span data-i18n="localHereBefore"></span><code data-this-origin></code><span data-i18n="localHereAfter"></span></p>
     <p class="hint" data-i18n-html="localMicHint"></p>
     <p class="hint" data-i18n-html="localOfflineHint"></p>
+    <section class="night-checklist">
+      <h3 data-i18n="localNightTitle"></h3>
+      <ol class="install-steps">
+        <li data-i18n-html="localNight1"></li>
+        <li data-i18n-html="localNight2"></li>
+        <li data-i18n-html="localNight3"></li>
+        <li data-i18n-html="localNight4"></li>
+        <li data-i18n-html="localNight5"></li>
+        <li data-i18n-html="localNight6"></li>
+        <li data-i18n-html="localNight7"></li>
+      </ol>
+    </section>
   `;
 }
 

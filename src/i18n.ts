@@ -83,6 +83,20 @@ const en = {
     "Use <strong>Chrome</strong> for the mic. Speech recognition may still need a network path to the device’s speech service (Chrome / Google), depending on the phone. That is not fully offline. <strong>Type a caption</strong> and Send if the mic cannot reach a recognizer.",
   localOfflineHint:
     "Turn on <strong>Offline / Local meeting</strong> so captions use the built-in dictionary (no MyMemory). Optional laptop env: <code>TRANSLATE_PROVIDER=mock</code>.",
+  localNightTitle: "Meeting night offline checklist",
+  localNight1:
+    "Turn on the phone’s <strong>Mobile hotspot</strong> (Samsung Fold or similar). Public internet is not required for that local Wi‑Fi.",
+  localNight2: "Connect the laptop to that hotspot.",
+  localNight3:
+    "On the laptop, in this repo, run the three commands above (<code>npm install</code>, <code>npm run build</code>, <code>npm start</code> on port <strong>8080</strong>). Leave that window open.",
+  localNight4:
+    "Find the laptop’s LAN IP. On the host phone, guest phones, and the TV browser, open <code>http://LAPTOP-IP:8080</code>.",
+  localNight5:
+    "Create the room on the host phone. Turn <strong>Meeting mode → Offline / Local meeting</strong> on (built-in dictionary; no DeepL or MyMemory).",
+  localNight6:
+    "Guests join with the QR or the same laptop URL. <strong>Send to TV</strong> uses the TV browser on that URL.",
+  localNight7:
+    "Offline translate covers limited phrases. The mic may still need Chrome’s speech network — use <strong>Type a caption</strong> and <strong>Send</strong> if speech fails. Keep the laptop awake.",
   joinSetupLead: "Room <strong>{room}</strong>. Answer two questions, then join.",
   spokenQuestion: "What language are you speaking?",
   watchQuestion: "What language do you want to watch?",
@@ -266,6 +280,20 @@ const es: Catalog = {
     "Usa <strong>Chrome</strong> para el micrófono. El reconocimiento de voz puede seguir necesitando una ruta de red al servicio de voz del aparato (Chrome / Google), según el teléfono. Eso no es del todo sin conexión. <strong>Escribe un subtítulo</strong> y Enviar si el micrófono no llega a un reconocedor.",
   localOfflineHint:
     "Activa <strong>Sin conexión / reunión local</strong> para que los subtítulos usen el diccionario integrado (sin MyMemory). Entorno opcional en la laptop: <code>TRANSLATE_PROVIDER=mock</code>.",
+  localNightTitle: "Lista de la noche de reunión sin conexión",
+  localNight1:
+    "Activa el <strong>hotspot móvil</strong> del teléfono (Fold o similar). Ese Wi‑Fi local no necesita internet público.",
+  localNight2: "Conecta la laptop a ese hotspot.",
+  localNight3:
+    "En la laptop, en este repositorio, ejecuta los tres comandos de arriba (<code>npm install</code>, <code>npm run build</code>, <code>npm start</code> en el puerto <strong>8080</strong>). Deja esa ventana abierta.",
+  localNight4:
+    "Busca la IP de la laptop en la red local. En el teléfono del anfitrión, los teléfonos de invitados y el navegador del TV, abre <code>http://LAPTOP-IP:8080</code>.",
+  localNight5:
+    "Crea la sala en el teléfono del anfitrión. Activa <strong>Modo de reunión → Sin conexión / reunión local</strong> (diccionario integrado; sin DeepL ni MyMemory).",
+  localNight6:
+    "Los invitados entran con el QR o la misma URL de la laptop. <strong>Enviar al TV</strong> usa el navegador del TV en esa URL.",
+  localNight7:
+    "La traducción sin conexión cubre frases limitadas. El micrófono puede seguir necesitando la red de voz de Chrome — usa <strong>Escribe un subtítulo</strong> y <strong>Enviar</strong> si la voz falla. Deja la laptop despierta.",
   joinSetupLead: "Sala <strong>{room}</strong>. Responde dos preguntas y entra.",
   spokenQuestion: "¿En qué idioma vas a hablar?",
   watchQuestion: "¿Qué idioma quieres ver?",
@@ -446,6 +474,20 @@ const pt: Catalog = {
     "Use o <strong>Chrome</strong> para o microfone. O reconhecimento de voz ainda pode precisar de um caminho de rede até o serviço de voz do aparelho (Chrome / Google), conforme o telefone. Isso não é totalmente offline. <strong>Digite uma legenda</strong> e Enviar se o microfone não alcançar um reconhecedor.",
   localOfflineHint:
     "Ative <strong>Sem internet / reunião local</strong> para as legendas usarem o dicionário interno (sem MyMemory). Ambiente opcional no laptop: <code>TRANSLATE_PROVIDER=mock</code>.",
+  localNightTitle: "Lista da noite de reunião offline",
+  localNight1:
+    "Ligue o <strong>hotspot móvel</strong> do telefone (Fold ou parecido). Esse Wi‑Fi local não precisa de internet pública.",
+  localNight2: "Conecte o laptop a esse hotspot.",
+  localNight3:
+    "No laptop, neste repositório, rode os três comandos acima (<code>npm install</code>, <code>npm run build</code>, <code>npm start</code> na porta <strong>8080</strong>). Deixe essa janela aberta.",
+  localNight4:
+    "Ache o IP do laptop na rede local. No telefone do anfitrião, nos telefones dos convidados e no navegador da TV, abra <code>http://LAPTOP-IP:8080</code>.",
+  localNight5:
+    "Crie a sala no telefone do anfitrião. Ligue <strong>Modo da reunião → Sem internet / reunião local</strong> (dicionário interno; sem DeepL nem MyMemory).",
+  localNight6:
+    "Os convidados entram pelo QR ou pela mesma URL do laptop. <strong>Enviar para a TV</strong> usa o navegador da TV nessa URL.",
+  localNight7:
+    "A tradução offline cobre frases limitadas. O microfone ainda pode precisar da rede de voz do Chrome — use <strong>Digite uma legenda</strong> e <strong>Enviar</strong> se a voz falhar. Deixe o laptop acordado.",
   joinSetupLead: "Sala <strong>{room}</strong>. Responda duas perguntas e entre.",
   spokenQuestion: "Em que idioma você vai falar?",
   watchQuestion: "Que idioma você quer ver?",
