@@ -6,8 +6,16 @@ export function foldDiacritics(value: string): string {
     .replace(/\p{M}/gu, "");
 }
 
+function captionWords(value: string): string {
+  return foldDiacritics(value)
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Same words, ignoring case, accents, and punctuation. */
 export function sameCaption(a: string, b: string): boolean {
-  return foldDiacritics(a).replace(/\s+/g, " ").trim() === foldDiacritics(b).replace(/\s+/g, " ").trim();
+  return captionWords(a) === captionWords(b);
 }
 
 export function wordCount(value: string): number {

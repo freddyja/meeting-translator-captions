@@ -13,6 +13,8 @@ import {
 import { joinSearch, parseRoute, parseTvLang, tvSearch } from "../src/router.ts";
 import { detectSpeechCapability, isAppleMobile } from "../src/stt/capability.ts";
 import { createWebSpeechProvider, localeRejectedMessage } from "../src/stt/web-speech.ts";
+import { speechSourceLang } from "../src/speech-caption.ts";
+import { readSpokenLang, writeSpokenLang } from "../src/spoken-pref.ts";
 import { renderCaptionBoard } from "../src/views/caption-board.ts";
 import { LAYOUTS, captionSpeakerName, isWatchLang, keepsLocalCaptions, langsForLayout, langsForWatch, lostFloor, reconcileFloor, speechLocale } from "../src/types.ts";
 
@@ -216,6 +218,81 @@ const liveBoard = renderCaptionBoard(
 );
 assert((liveBoard.html.match(/class="line-speaker">Ada/g) || []).length === 3, "interim captions name the speaker in each window");
 assert(liveBoard.html.includes("hello"), "spoken draft stays on the source pane");
+
+function windowHtml(html, lang) {
+  const parts = html.split('<section class="window"').slice(1);
+  return parts.find((chunk) => chunk.includes(`data-lang="${lang}"`)) || "";
+}
+
+const spanishDraft = renderCaptionBoard(
+  { layout: "en-es-pt", lines: [], listening: true, floor: { holderId: "guest", holderName: "Ada" } },
+  { text: "Hola amigos", sourceLang: "en", speaker: "Ada" },
+);
+assert(windowHtml(spanishDraft.html, "es").includes("Hola amigos"), "Spanish speech draft is in the ES pane");
+assert(!windowHtml(spanishDraft.html, "en").includes("Hola"), "Spanish speech draft is not in the EN pane");
+assert(windowHtml(spanishDraft.html, "en").includes("Listening"), "EN pane waits while Spanish is still a draft");
+assert(windowHtml(spanishDraft.html, "pt").includes("Listening"), "PT pane waits while Spanish is still a draft");
+assert((spanishDraft.html.match(/class="line-speaker">Ada/g) || []).length === 3, "Spanish draft still names the speaker");
+
+const portugueseDraft = renderCaptionBoard(
+  { layout: "en-es-pt", lines: [], listening: true, floor: { holderId: "guest", holderName: "Ada" } },
+  { text: "Boa noite a todos", sourceLang: "en", speaker: "Ada" },
+);
+assert(windowHtml(portugueseDraft.html, "pt").includes("Boa noite a todos"), "Portuguese speech draft is in the PT pane");
+assert(!windowHtml(portugueseDraft.html, "en").includes("Boa noite"), "Portuguese speech draft is not in the EN pane");
+
+const englishDraft = renderCaptionBoard(
+  { layout: "en-es-pt", lines: [], listening: true, floor: { holderId: "guest", holderName: "Ada" } },
+  { text: "Welcome everyone", sourceLang: "es", speaker: "Ada" },
+);
+assert(windowHtml(englishDraft.html, "en").includes("Welcome everyone"), "English speech draft is in the EN pane");
+assert(!windowHtml(englishDraft.html, "es").includes("Welcome everyone"), "English speech draft is not in the ES pane");
+
+const watchEnglish = renderCaptionBoard(
+  { layout: "en-es-pt", lines: [], listening: true, floor: { holderId: "guest", holderName: "Ada" } },
+  { text: "Hola amigos", sourceLang: "en", speaker: "Ada" },
+  ["en"],
+);
+assert(watchEnglish.shown.join(",") === "en", "Watch English still shows one pane");
+assert(!watchEnglish.html.includes("Hola"), "Watch English does not show the Spanish draft");
+assert(watchEnglish.html.includes("Listening"), "Watch English shows the waiting state for Spanish speech");
+
+const stuckMic = renderCaptionBoard(
+  { layout: "en-es-pt", lines: [], listening: true, floor: { holderId: "host", holderName: "Host" } },
+  { text: "pueden sentarse", sourceLang: "es", draftLang: speechSourceLang("pueden sentarse", "es", "en-US"), speaker: "Host" },
+);
+assert(speechSourceLang("pueden sentarse", "es", "en-US") === "es", "speech draft language follows the Spanish chip");
+assert(windowHtml(stuckMic.html, "es").includes("pueden sentarse"), "Spanish mic draft stays in the ES pane");
+assert(!windowHtml(stuckMic.html, "en").includes("pueden"), "stuck en-US engine does not paint the Spanish draft in EN");
+assert(windowHtml(stuckMic.html, "en").includes("Listening"), "EN pane waits on a Spanish mic draft");
+assert((stuckMic.html.match(/class="line-speaker">Host/g) || []).length === 3, "Spanish mic draft still names the speaker");
+
+const stuckWatch = renderCaptionBoard(
+  { layout: "en-es-pt", lines: [], listening: true, floor: { holderId: "host", holderName: "Host" } },
+  { text: "Boa noite a todos", sourceLang: "pt", draftLang: "pt", speaker: "Host" },
+  ["en"],
+);
+assert(!stuckWatch.html.includes("Boa noite"), "Watch English hides a Portuguese mic draft");
+assert(stuckWatch.html.includes("Listening"), "Watch English waits during Portuguese speech");
+
+const watchFinal = renderCaptionBoard(
+  {
+    layout: "en-es-pt",
+    lines: [
+      {
+        id: "sp",
+        isFinal: true,
+        at: 1,
+        speaker: "Ada",
+        text: { en: "Hello friends", es: "Hola amigos", pt: "Olá amigos" },
+      },
+    ],
+  },
+  null,
+  ["en"],
+);
+assert(watchFinal.html.includes("Hello friends"), "Watch English shows the English line");
+assert(!watchFinal.html.includes("Hola amigos"), "Watch English does not fall back to the Spanish line");
 
 assert(speechLocale("en") === "en-US", "English recognizer locale");
 assert(speechLocale("es") === "es-ES", "Spanish recognizer locale");
@@ -666,6 +743,33 @@ assert(chromeDraftSpeech.finals.length === 0, "Chrome does not promote interim d
 assert(chromeCommits === 0, "Chrome does not schedule an interim commit");
 assert(chromeDraft.active()[0].emit("en-US", "Welcome everyone") === "final", "Chrome final still publishes");
 
+{
+  const heard = [];
+  const world = createRecognitionWorld({ stickyFirstInstance: true });
+  const speech = createWebSpeechProvider({
+    appleMobile: true,
+    recognitionCtor: world.Rec,
+    scheduleRestart: (run) => queueMicrotask(run),
+    scheduleCommit: () => {},
+    scheduleWatchdog: () => {},
+  });
+  speech.onResult = (result) => heard.push(result);
+  speech.setLang(speechLocale("es"), true);
+  speech.start();
+  await flush();
+  assert(world.active()[0].emitPartial("es-ES", "pueden sentarse") === "interim", "Spanish interim on a primed es-ES session");
+  const draft = heard.at(-1);
+  assert(draft && draft.isFinal === false && draft.locale === "es-ES", `interim carries the Spoken locale (${draft?.locale})`);
+  assert(world.active()[0].finish() === "end", "Spanish interim ends");
+  await flush();
+  const finals = heard.filter((result) => result.isFinal);
+  assert(finals.length === 1, `iPhone promotes one speech final, got ${finals.length}`);
+  assert(finals[0].text === "pueden sentarse" && finals[0].locale === "es-ES", `final keeps es-ES, not a stuck en-US (${finals[0]?.locale})`);
+  assert(heard.filter((result) => !result.isFinal).every((result) => result.isFinal === false), "interims stay drafts");
+  speech.stop();
+  await flush();
+}
+
 // Join publishes isFinal only. The quiet timer is disabled here so a pass means
 // no-speech / onend itself delivered the line, not a later stall commit.
 function joinPublishHarness(world) {
@@ -851,5 +955,14 @@ const enListening = renderCaptionBoard(
 );
 assert(enListening.html.includes("Listening…"), "English listening label returns");
 assert(enListening.html.includes('class="line-speaker">Host'), "English host label returns");
+writeSpokenLang("es");
+assert(readSpokenLang() === "es", "Spoken Spanish is stored on this device");
+assert(localStorage.getItem("mt-guest-spoken") === "es", "legacy guest Spoken key stays in sync");
+localStorage.removeItem("mt-spoken-lang");
+assert(readSpokenLang() === "es", "a saved guest Spoken language still loads");
+writeSpokenLang("pt");
+assert(readSpokenLang() === "pt", "Spoken Portuguese replaces the saved language");
+writeSpokenLang("en");
+assert(readSpokenLang() === "en", "Spoken English can be selected again");
 
 console.log("OK route — lang= is TV-only, opt-in, and omitted from the combined TV link");

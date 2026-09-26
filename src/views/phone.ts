@@ -8,7 +8,10 @@ import { tvQrSvg } from "../qr";
 import { connectRoom, type RoomConnection } from "../realtime/client";
 import { goto, joinUrl, tvUrl } from "../router";
 import { createWebSpeechProvider, isNonFatalSpeechNote, isSpeechFallbackMessage } from "../stt/web-speech";
-import { createTranslator, detectLang, translateAll } from "../translate";
+import { speechSourceLang } from "../speech-caption";
+import { readSpokenLang, writeSpokenLang } from "../spoken-pref";
+import { createTranslator, translateAll } from "../translate";
+import { spokenKey } from "../translate/panes";
 import { paintCaptionBoard } from "./caption-board";
 import {
   emptyFloor,
@@ -48,7 +51,7 @@ const micIcon = `
 export function mountPhone(root: HTMLElement, room: string): () => void {
   const translator = createTranslator();
   const speech = createWebSpeechProvider();
-  let state = emptyState(room);
+  let state = { ...emptyState(room), sourceLang: readSpokenLang() };
   let peers: PeerCounts = { phones: 1, tvs: 0, guests: 0 };
   let connStatus: ConnStatus = "connecting";
   let error = "";
@@ -61,9 +64,9 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
   let copyJoinTimer = 0;
   let smartViewMode = false;
   let liveInterim = "";
+  let liveDraftLang: Lang = state.sourceLang;
   let lastCaptionWasMock = false;
-  let sourceTouched = false;
-  let pendingFinal = "";
+  let pendingSpeech: { text: string; lang: Lang } | null = null;
   let peerId: string | null = null;
   let floor: FloorState = emptyFloor();
 
@@ -327,7 +330,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     els.preview.classList.toggle("interim", Boolean(liveInterim && holding) || (holding && state.listening && !lastFinal));
     const live =
       liveInterim && holding
-        ? { text: liveInterim, sourceLang: state.sourceLang, speaker: hostSpeaker() }
+        ? { text: liveInterim, sourceLang: state.sourceLang, draftLang: liveDraftLang, speaker: hostSpeaker() }
         : null;
     const boardState = {
       layout: state.layout,
@@ -375,21 +378,28 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     return captionSpeakerName(floor.holderName, HOST_NAME);
   }
 
-  function setLiveInterim(text: string) {
+  function setLiveInterim(text: string, lang: Lang = state.sourceLang) {
     const next = text.trim();
-    if (next === liveInterim) return;
+    if (next === liveInterim && (!next || lang === liveDraftLang)) return;
     liveInterim = next;
+    if (next) liveDraftLang = lang;
     renderDynamic();
   }
 
-  async function publishFinal(text: string, coalesce = true) {
+  async function publishFinal(text: string, coalesce = true, speechLang?: Lang) {
     const spoken = text.trim();
     if (!spoken) return;
     liveInterim = "";
     renderDynamic();
     const epoch = publishEpoch;
-    const from = detectLang(spoken, state.sourceLang);
-    const translated = await translateAll(translator, spoken, from);
+    const hint = speechLang ?? state.sourceLang;
+    const translated = await translateAll(
+      translator,
+      spoken,
+      hint,
+      speechLang ? { trustHint: true } : undefined,
+    );
+    const from = spokenKey(spoken, translated, hint);
     if (epoch !== publishEpoch) return;
     lastCaptionWasMock = translator.id === "mock";
     paintLimitedBanner();
@@ -407,8 +417,8 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
   }
 
   let publishQueue: Promise<void> = Promise.resolve();
-  const queuePublish = (text: string, coalesce = true) => {
-    publishQueue = publishQueue.then(() => publishFinal(text, coalesce)).catch(() => undefined);
+  const queuePublish = (text: string, coalesce = true, speechLang?: Lang) => {
+    publishQueue = publishQueue.then(() => publishFinal(text, coalesce, speechLang)).catch(() => undefined);
   };
 
   const releaseWake = () => {
@@ -435,7 +445,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     error = "";
     if (isFloorHolder(floor, peerId)) {
       stopLocalMic();
-      pendingFinal = "";
+      pendingSpeech = null;
       void (async () => {
         await conn?.releaseFloor();
         setState({ ...state, listening: false });
@@ -455,7 +465,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
       const ok = (await conn?.claimFloor(HOST_NAME)) ?? false;
       if (!ok) {
         speech.stop();
-        pendingFinal = "";
+        pendingSpeech = null;
         error = someoneElseSpeaking(floor);
         renderDynamic();
         return;
@@ -464,15 +474,15 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
         speech.stop();
         releaseWake();
         typeForm.hidden = false;
-        pendingFinal = "";
+        pendingSpeech = null;
         setState({ ...state, listening: false });
         return;
       }
       void requestWake();
       setState({ ...state, listening: true });
-      const queued = pendingFinal.trim();
-      pendingFinal = "";
-      if (queued) queuePublish(queued);
+      const queued = pendingSpeech;
+      pendingSpeech = null;
+      if (queued?.text.trim()) queuePublish(queued.text, true, queued.lang);
     })();
   };
 
@@ -514,17 +524,18 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
   // Same final-only push as Join. iPhone no-speech-after-words still lands here as one final.
   speech.onResult = (result) => {
     error = "";
+    const heard = speechSourceLang(result.text, state.sourceLang, result.locale);
     if (result.isFinal) {
       if (isFloorHolder(floor, peerId)) {
-        pendingFinal = "";
-        queuePublish(result.text);
+        pendingSpeech = null;
+        queuePublish(result.text, true, heard);
       } else if (!floorHeldByOther(floor, peerId)) {
-        pendingFinal = result.text;
+        pendingSpeech = { text: result.text, lang: heard };
       }
       return;
     }
     if (!isFloorHolder(floor, peerId)) return;
-    setLiveInterim(result.text);
+    setLiveInterim(result.text, heard);
   };
   speech.onError = (message) => {
     error = message;
@@ -552,12 +563,13 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     if (!btn?.dataset.lang) return;
     const sourceLang = btn.dataset.lang as Lang;
     if (!isLang(sourceLang)) return;
-    sourceTouched = true;
+    writeSpokenLang(sourceLang);
     if (sourceLang !== state.sourceLang) liveInterim = "";
-    // While listening, setLang retargets the recognizer in this tap.
-    // Chrome rebuilds it. iOS reuses the original object and only changes lang.
-    speech.setLang(speechLocale(sourceLang), true);
+    // Chip first. setLang may commit the in-progress draft on this tap, and
+    // that final has to file under the language just chosen.
+    // Chrome rebuilds the recognizer. iOS reuses the original object and only changes lang.
     setState({ ...state, sourceLang });
+    speech.setLang(speechLocale(sourceLang), true);
   };
 
   const onLayout = (event: Event) => {
@@ -820,7 +832,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
       floor = next;
       if (lost) {
         publishEpoch += 1;
-        pendingFinal = "";
+        pendingSpeech = null;
         stopLocalMic();
         error = someoneElseSpeaking(next);
         setState({ ...state, listening: false }, false);
@@ -840,12 +852,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
           room,
           floor,
           listening: false,
-          sourceLang:
-            sourceTouched && isLang(state.sourceLang)
-              ? state.sourceLang
-              : isLang(next.sourceLang)
-                ? next.sourceLang
-                : state.sourceLang,
+          sourceLang: state.sourceLang,
           lines: finalizedLines(next.lines ?? []),
         };
         speech.setLang(speechLocale(state.sourceLang));

@@ -36,9 +36,31 @@ export function deeplTranslateUrl(authKey = "", explicitUrl = ""): string {
 }
 
 type DeepLPayload = {
-  translations?: { text?: string }[];
+  translations?: { text?: string; detected_source_language?: string }[];
   message?: string;
 };
+
+/** DeepL codes such as EN, EN-US, ES, PT, PT-BR. */
+export function mapDeepLLang(code: string | undefined): Lang | null {
+  const norm = String(code || "")
+    .trim()
+    .toUpperCase();
+  if (norm.startsWith("EN")) return "en";
+  if (norm.startsWith("ES")) return "es";
+  if (norm.startsWith("PT")) return "pt";
+  return null;
+}
+
+/**
+ * Auto-detect result. When DeepL refuses because the text is already the
+ * probe target, that target is the spoken language.
+ */
+export function langFromDeepLProbe(target: Lang, detectedCode: string | undefined, errorMessage = ""): Lang | null {
+  const detected = mapDeepLLang(detectedCode);
+  if (detected) return detected;
+  if (/equal/i.test(errorMessage) && /source/i.test(errorMessage) && /target/i.test(errorMessage)) return target;
+  return null;
+}
 
 export function parseDeepLResponse(data: DeepLPayload): string {
   const translated = data.translations?.[0]?.text?.trim();
@@ -78,4 +100,36 @@ export async function deeplTranslate(
     throw new Error(res.status === 456 ? `DeepL quota exceeded: ${detail}` : detail);
   }
   return parseDeepLResponse(data);
+}
+
+/** Omit source_lang so DeepL names the spoken language. Probe target is English. */
+export async function deeplDetectLang(
+  text: string,
+  options: { authKey: string; apiUrl?: string; timeoutMs?: number },
+): Promise<Lang | null> {
+  const key = options.authKey.trim();
+  const source = text.trim();
+  if (!key || !source) return null;
+
+  const res = await fetch(deeplTranslateUrl(key, options.apiUrl || ""), {
+    method: "POST",
+    headers: {
+      authorization: `DeepL-Auth-Key ${key}`,
+      "content-type": "application/json",
+      "user-agent": "Meeting-Translator-Captions/0.1.0",
+    },
+    body: JSON.stringify({
+      text: [source],
+      target_lang: deeplTargetLang("en"),
+    }),
+    signal: AbortSignal.timeout(options.timeoutMs ?? 8000),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as DeepLPayload;
+  if (!res.ok) {
+    const detail = data.message || `DeepL HTTP ${res.status}`;
+    const message = res.status === 456 ? `DeepL quota exceeded: ${detail}` : detail;
+    return langFromDeepLProbe("en", undefined, message);
+  }
+  return mapDeepLLang(data.translations?.[0]?.detected_source_language);
 }

@@ -4,6 +4,8 @@ import { createMinTTranslator } from "./mint";
 import { mockTranslator } from "./mock";
 import { createLibreTranslator } from "./libretranslate";
 import { createMyMemoryTranslator } from "./mymemory";
+import { speechSourceLang } from "../speech-caption";
+import { stripForeignEchoes, translateUntilSpoken } from "./panes";
 import { passthroughTranslator } from "./passthrough";
 import { createServerTranslator } from "./server";
 import { translateAll as runTranslateAll, type Translator } from "./types";
@@ -39,8 +41,19 @@ function withOfflineMode(primary: Translator): Translator {
     translate(text, from, to) {
       return active().translate(text, from, to);
     },
-    translateAll(text, from) {
-      return runTranslateAll(active(), text, detectLang(text, from));
+    translateAll(text, from, options) {
+      const engine = active();
+      if (options?.trustHint) {
+        const spoken = speechSourceLang(text, from);
+        if (isOfflineMeeting() || engine.id === "mock") {
+          return runTranslateAll(engine, text, spoken).then((map) => stripForeignEchoes(text, spoken, map));
+        }
+        return runTranslateAll(engine, text, spoken, { trustHint: true });
+      }
+      if (isOfflineMeeting() || engine.id === "mock") {
+        return translateUntilSpoken((value, spoken) => runTranslateAll(engine, value, spoken), text, from);
+      }
+      return runTranslateAll(engine, text, detectLang(text, from));
     },
   };
 }
@@ -72,9 +85,9 @@ function withFallback(primary: Translator): Translator {
         return mockTranslator.translate(text, from, to);
       }
     },
-    async translateAll(text, from) {
+    async translateAll(text, from, options) {
       try {
-        const mapped = await runTranslateAll(primary, text, from);
+        const mapped = await runTranslateAll(primary, text, from, options);
         lastId = primary.id;
         return mapped;
       } catch (err) {
@@ -91,11 +104,11 @@ function withFallback(primary: Translator): Translator {
         }
       }
       lastId = "mock";
-      return {
+      return stripForeignEchoes(text, from, {
         en: from === "en" ? text : await safeMock(text, from, "en"),
         es: from === "es" ? text : await safeMock(text, from, "es"),
         pt: from === "pt" ? text : await safeMock(text, from, "pt"),
-      };
+      });
     },
   };
 }

@@ -81,7 +81,10 @@ async function handleTranslate(req: IncomingMessage, res: ServerResponse): Promi
   const requestProvider = typeof body.provider === "string" ? body.provider : undefined;
 
   try {
-    const result = await translateCaption(text, body.from, targets, { provider: requestProvider });
+    const result = await translateCaption(text, body.from, targets, {
+      provider: requestProvider,
+      trustHint: body.trustHint === true,
+    });
     send(res, 200, result);
   } catch (err) {
     const status = typeof err === "object" && err && "status" in err ? Number(err.status) : 502;
