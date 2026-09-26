@@ -4,7 +4,6 @@ import { createMinTTranslator } from "./mint";
 import { mockTranslator } from "./mock";
 import { createLibreTranslator } from "./libretranslate";
 import { createMyMemoryTranslator } from "./mymemory";
-import { speechSourceLang } from "../speech-caption";
 import { stripForeignEchoes, translateUntilSpoken } from "./panes";
 import { passthroughTranslator } from "./passthrough";
 import { createServerTranslator } from "./server";
@@ -41,15 +40,10 @@ function withOfflineMode(primary: Translator): Translator {
     translate(text, from, to) {
       return active().translate(text, from, to);
     },
-    translateAll(text, from, options) {
+    translateAll(text, from) {
       const engine = active();
-      if (options?.trustHint) {
-        const spoken = speechSourceLang(text, from);
-        if (isOfflineMeeting() || engine.id === "mock") {
-          return runTranslateAll(engine, text, spoken).then((map) => stripForeignEchoes(text, spoken, map));
-        }
-        return runTranslateAll(engine, text, spoken, { trustHint: true });
-      }
+      // Speech and Type+Send share this path. A mic-only hint that skipped
+      // detection left Spanish ("mi casa es Roja") in the English pane.
       if (isOfflineMeeting() || engine.id === "mock") {
         return translateUntilSpoken((value, spoken) => runTranslateAll(engine, value, spoken), text, from);
       }
