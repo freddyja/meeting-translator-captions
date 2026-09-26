@@ -1,7 +1,7 @@
 import { isOfflineMeeting } from "../offline-mode";
 import { isLang, type Lang } from "../types";
 import { stripForeignEchoes } from "./panes";
-import type { Translator } from "./types";
+import type { TranslateAllOptions, Translator } from "./types";
 
 type TranslateResponse = {
   provider?: string;
@@ -24,9 +24,9 @@ export function createServerTranslator(): Translator {
       if (value && typeof value[to] === "string" && value[to]) return value[to];
       throw new Error("Translate API returned no text");
     },
-    async translateAll(text, from) {
+    async translateAll(text, from, options) {
       if (!text.trim()) return { en: "", es: "", pt: "" };
-      const result = await postTranslate(text, from);
+      const result = await postTranslate(text, from, undefined, options);
       if (result.provider) lastProvider = result.provider;
       const value = result.text;
       if (!value || typeof value === "string") {
@@ -42,12 +42,18 @@ export function createServerTranslator(): Translator {
   };
 }
 
-async function postTranslate(text: string, from: Lang, to?: Lang[]): Promise<TranslateResponse> {
+async function postTranslate(
+  text: string,
+  from: Lang,
+  to?: Lang[],
+  options?: TranslateAllOptions,
+): Promise<TranslateResponse> {
   const payload: Record<string, unknown> = {
     text,
     from,
     to: to ?? (["en", "es", "pt"] as Lang[]),
   };
+  if (options?.trustHint) payload.trustHint = true;
   if (isOfflineMeeting()) payload.provider = "mock";
   const res = await fetch("/api/translate", {
     method: "POST",

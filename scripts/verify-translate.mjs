@@ -8,6 +8,7 @@ import {
   parseDeepLResponse,
   resolveDeepLApiUrl,
 } from "../src/translate/deepl.ts";
+import { speechSourceLang } from "../src/speech-caption.ts";
 import { detectLang } from "../src/translate/detect.ts";
 import { foreignEchoes, spokenKey, stripForeignEchoes } from "../src/translate/panes.ts";
 import { createMinTTranslator, parseMinTResponse } from "../src/translate/mint.ts";
@@ -229,6 +230,78 @@ async function checkMockAnyDirection() {
   );
 }
 
+async function checkSpeechFiling() {
+  assert(speechSourceLang("pueden sentarse", "es", "en-US") === "es", "stuck en-US recognizer does not file Spanish speech as English");
+  assert(speechSourceLang("pueden sentarse", "pt", "en-US") === "pt", "stuck en-US recognizer does not file Portuguese speech as English");
+  assert(speechSourceLang("Hola amigos", "en", "en-US") === "es", "Spanish speech markers still leave the English chip");
+  assert(speechSourceLang("Boa noite a todos", "en", "en-US") === "pt", "Portuguese speech markers still leave the English chip");
+  assert(speechSourceLang("Welcome everyone", "es", "es-ES") === "en", "English speech still leaves a Spanish chip");
+  assert(speechSourceLang("Welcome everyone", "pt", "pt-BR") === "en", "English speech still leaves a Portuguese chip");
+  assert(speechSourceLang("the hermanos", "es", "en-US") === "es", "an English function word does not steal a Spanish mic");
+  assert(speechSourceLang("Ok", "es", "es-ES") === "es", "a short Spanish mic utterance stays Spanish");
+
+  const spoken = [
+    {
+      chip: "es",
+      locale: "en-US",
+      text: "pueden sentarse",
+      from: "es",
+      expect: { en: /seated|you may/i, pt: /sent/i },
+    },
+    {
+      chip: "es",
+      locale: "es-ES",
+      text: "Hola amigos",
+      from: "es",
+      expect: { en: /hello|friend/i, pt: /ol[aá]|amig/i },
+    },
+    {
+      chip: "pt",
+      locale: "en-US",
+      text: "Boa noite a todos",
+      from: "pt",
+      expect: { en: /night|evening|everyone/i, es: /noche|todos/i },
+    },
+    {
+      chip: "en",
+      locale: "en-US",
+      text: "Welcome everyone",
+      from: "en",
+      expect: { es: /bienvenid|todos/i, pt: /bem-vind|todos/i },
+    },
+    {
+      chip: "en",
+      locale: "en-US",
+      text: "Hola amigos",
+      from: "es",
+      expect: { en: /hello|friend/i, pt: /ol[aá]|amig/i },
+    },
+  ];
+
+  for (const sample of spoken) {
+    const lang = speechSourceLang(sample.text, sample.chip, sample.locale);
+    assert(lang === sample.from, `speech ${sample.locale} chip ${sample.chip} "${sample.text}" → ${lang}, want ${sample.from}`);
+    const result = await translateCaption(sample.text, lang, ["en", "es", "pt"], {
+      provider: "mock",
+      trustHint: true,
+    });
+    assert(result.from === sample.from, `speech caption filed as ${result.from}, want ${sample.from} (${sample.text})`);
+    assert(
+      String(result.text[sample.from]).toLowerCase().includes(sample.text.slice(0, 6).toLowerCase()),
+      `speech ${sample.from} pane keeps "${sample.text}" (${result.text[sample.from]})`,
+    );
+    for (const [to, pattern] of Object.entries(sample.expect)) {
+      const value = String(result.text[to] || "");
+      assert(value.trim().length > 0, `speech ${sample.text} ${to} empty`);
+      assert(!isIdentityTranslation(sample.text, value), `speech ${sample.text} left in ${to}: ${value}`);
+      assert(pattern.test(value), `speech ${sample.text} ${to} unexpected: ${value}`);
+    }
+    if (sample.from !== "en") {
+      assert(!isIdentityTranslation(sample.text, result.text.en || ""), `EN pane still has the ${sample.from} transcript: ${result.text.en}`);
+    }
+  }
+}
+
 async function checkSpokenPaneMatrix() {
   const samples = [
     {
@@ -410,6 +483,7 @@ const checks = [
   ["mock request override", checkMockOverride],
   ["mock any-direction EN/ES/PT", checkMockAnyDirection],
   ["spoken EN/ES/PT pane matrix", checkSpokenPaneMatrix],
+  ["speech mic filing", checkSpeechFiling],
 ];
 
 for (const [name, fn] of checks) {

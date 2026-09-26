@@ -15,6 +15,7 @@ import { connectRoom, type RoomConnection } from "../realtime/client";
 import { goto } from "../router";
 import { detectSpeechCapability } from "../stt/capability";
 import { createWebSpeechProvider, isNonFatalSpeechNote, isSpeechFallbackMessage } from "../stt/web-speech";
+import { speechSourceLang } from "../speech-caption";
 import { readSpokenLang, writeSpokenLang } from "../spoken-pref";
 import { createTranslator, translateAll } from "../translate";
 import { spokenKey } from "../translate/panes";
@@ -71,12 +72,13 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   let peerId: string | null = null;
   let floor: FloorState = emptyFloor();
   let sourceLang: Lang = readSpokenLang();
+  let liveDraftLang: Lang = sourceLang;
   let watchLang: WatchLang = readWatchLang();
   let displayName = readGuestName();
   let entered = false;
   let lastCaptionWasMock = false;
   let typeFallback = stt.preferType;
-  let pendingFinal = "";
+  let pendingSpeech: { text: string; lang: Lang } | null = null;
 
   const push = () =>
     conn?.push({
@@ -248,7 +250,9 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     paintCaptionBoard(
       board,
       { layout: state.layout, lines: finalizedLines(state.lines), listening: state.listening, floor },
-      liveInterim && holding ? { text: liveInterim, sourceLang, speaker: guestSpeaker() } : null,
+      liveInterim && holding
+        ? { text: liveInterim, sourceLang, draftLang: liveDraftLang, speaker: guestSpeaker() }
+        : null,
       langsForWatch(watchLang),
     );
     syncOrientation();
@@ -284,7 +288,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     }
     if (isFloorHolder(floor, peerId)) {
       stopLocalMic();
-      pendingFinal = "";
+      pendingSpeech = null;
       void (async () => {
         await conn?.releaseFloor();
         renderDynamic();
@@ -306,7 +310,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
       const ok = (await conn?.claimFloor(displayName)) ?? false;
       if (!ok) {
         speech.stop();
-        pendingFinal = "";
+        pendingSpeech = null;
         error = someoneElseSpeaking(floor);
         renderDynamic();
         return;
@@ -324,9 +328,9 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
       renderDynamic();
       push();
       // Finals that arrived after start() but before the floor was granted.
-      const queued = pendingFinal.trim();
-      pendingFinal = "";
-      if (queued) queuePublish(queued);
+      const queued = pendingSpeech;
+      pendingSpeech = null;
+      if (queued?.text.trim()) queuePublish(queued.text, true, queued.lang);
     })();
   };
 
@@ -346,7 +350,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     return displayName;
   }
 
-  async function publishFinal(text: string, coalesce = true) {
+  async function publishFinal(text: string, coalesce = true, speechLang?: Lang) {
     const spoken = text.trim();
     if (!spoken) return;
     const speaker = currentGuestName();
@@ -369,8 +373,9 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     liveInterim = "";
     renderDynamic();
     const epoch = publishEpoch;
-    const translated = await translateAll(translator, spoken, sourceLang);
-    const from = spokenKey(spoken, translated, sourceLang);
+    const hint = speechLang ?? sourceLang;
+    const translated = await translateAll(translator, spoken, hint, speechLang ? { trustHint: true } : undefined);
+    const from = spokenKey(spoken, translated, hint);
     if (epoch !== publishEpoch) return;
     lastCaptionWasMock = translator.id === "mock";
     const line: CaptionLine = {
@@ -389,8 +394,8 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   }
 
   let publishQueue: Promise<void> = Promise.resolve();
-  const queuePublish = (text: string, coalesce = true) => {
-    publishQueue = publishQueue.then(() => publishFinal(text, coalesce)).catch(() => undefined);
+  const queuePublish = (text: string, coalesce = true, speechLang?: Lang) => {
+    publishQueue = publishQueue.then(() => publishFinal(text, coalesce, speechLang)).catch(() => undefined);
   };
 
   // Interims paint on this phone only. Peers receive one committed line.
@@ -398,12 +403,13 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   // no-speech. The speech provider turns that into one final so this still pushes.
   speech.onResult = (result) => {
     error = "";
+    const heard = speechSourceLang(result.text, sourceLang, result.locale);
     if (result.isFinal) {
       if (isFloorHolder(floor, peerId)) {
-        pendingFinal = "";
-        queuePublish(result.text);
+        pendingSpeech = null;
+        queuePublish(result.text, true, heard);
       } else if (!floorHeldByOther(floor, peerId)) {
-        pendingFinal = result.text;
+        pendingSpeech = { text: result.text, lang: heard };
       } else {
         error = someoneElseSpeaking(floor);
         renderDynamic();
@@ -412,8 +418,9 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     }
     if (!isFloorHolder(floor, peerId)) return;
     const next = result.text.trim();
-    if (next === liveInterim) return;
+    if (next === liveInterim && (!next || heard === liveDraftLang)) return;
     liveInterim = next;
+    if (next) liveDraftLang = heard;
     renderDynamic();
   };
   speech.onError = (message) => {
@@ -425,7 +432,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
       renderDynamic();
       return;
     }
-    pendingFinal = "";
+    pendingSpeech = null;
     stopLocalMic();
     typeInput.focus();
     renderDynamic();
@@ -579,7 +586,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
         floor = next;
         if (lost) {
           publishEpoch += 1;
-          pendingFinal = "";
+          pendingSpeech = null;
           stopLocalMic();
           error = someoneElseSpeaking(next);
         } else if (isFloorHolder(next, peerId) && error.startsWith("Someone else is speaking")) {

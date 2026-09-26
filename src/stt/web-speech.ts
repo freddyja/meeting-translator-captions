@@ -3,6 +3,11 @@ import { isAppleMobile } from "./capability.ts";
 export type SpeechResult = {
   text: string;
   isFinal: boolean;
+  /**
+   * Locale this session was asked to recognize (`es-ES`, `pt-BR`, `en-US`).
+   * This is the Spoken chip's locale, not a sticky engine that stayed on en-US.
+   */
+  locale: string;
 };
 
 export type SpeechProvider = {
@@ -211,7 +216,7 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
     cancelCommit();
     if (!text || text === lastCommitted) return false;
     lastCommitted = text;
-    provider.onResult?.({ text, isFinal: true });
+    provider.onResult?.({ text, isFinal: true, locale });
     return true;
   }
 
@@ -376,7 +381,7 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
             lastCommitted = text;
             draft = "";
             cancelCommit();
-            provider.onResult?.({ text, isFinal: true });
+            provider.onResult?.({ text, isFinal: true, locale });
           } else {
             draft = "";
             cancelCommit();
@@ -398,7 +403,7 @@ export function createWebSpeechProvider(options: WebSpeechOptions = {}): SpeechP
           scheduleDraftCommit(gen);
         }
       }
-      provider.onResult?.({ text: interimText, isFinal: false });
+      provider.onResult?.({ text: interimText, isFinal: false, locale });
     };
 
     mine.onerror = (event) => {

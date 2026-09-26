@@ -1,3 +1,4 @@
+import { speechSourceLang } from "../src/speech-caption.ts";
 import { detectLang, neutralLang } from "../src/translate/detect.ts";
 import { deeplDetectLang, deeplTranslate } from "../src/translate/deepl.ts";
 import { createMinTTranslator } from "../src/translate/mint.ts";
@@ -294,7 +295,7 @@ export async function translateCaption(
   text: string,
   hintedFrom: Lang,
   targets: Lang[] = LANGS,
-  options?: { provider?: string },
+  options?: { provider?: string; trustHint?: boolean },
 ): Promise<{ provider: TranslateProvider; text: Record<Lang, string>; from: Lang }> {
   const source = text.trim();
   const provider = effectiveTranslateProvider(options?.provider);
@@ -307,13 +308,19 @@ export async function translateCaption(
   }
 
   const marked = neutralLang(source);
-  const spoken = await resolveSpoken(source, hintedFrom, provider !== "mock");
-  const attempts = [spoken, ...LANGS.filter((lang) => lang !== spoken)];
+  // Mic captions name their language. Do not let an unmarked DeepL probe
+  // file that utterance as English, and do not retry a different source
+  // language — that retry is what puts the transcript in the EN pane.
+  const trustHint = options?.trustHint === true;
+  const spoken = trustHint
+    ? speechSourceLang(source, hintedFrom)
+    : await resolveSpoken(source, hintedFrom, provider !== "mock");
+  const attempts = trustHint ? [spoken] : [spoken, ...LANGS.filter((lang) => lang !== spoken)];
   let winner = await renderCaption(source, attempts[0], targets, provider);
   let from = attempts[0];
-  // A confident marker match is the spoken language. Only unmarked speech
-  // may try the other languages when the first filing still echoes.
-  if (!marked && foreignEchoes(source, from, winner.text)) {
+  // A confident marker match is the spoken language. Only unmarked typed
+  // captions may try the other languages when the first filing still echoes.
+  if (!trustHint && !marked && foreignEchoes(source, from, winner.text)) {
     for (const alt of attempts.slice(1)) {
       const next = await renderCaption(source, alt, targets, provider);
       if (!foreignEchoes(source, alt, next.text)) {

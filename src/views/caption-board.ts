@@ -16,6 +16,8 @@ export type LiveCaption = {
   text: string;
   sourceLang: Lang;
   speaker?: string;
+  /** Pane for this mic draft. Set by the speech path so detection cannot move it. */
+  draftLang?: Lang;
 };
 
 export type CaptionBoardState = Pick<RoomState, "layout" | "lines"> &
@@ -82,7 +84,7 @@ export function renderCaptionBoard(
 ): { shown: Lang[]; html: string } {
   const shown = langs?.length ? [...langs] : langsForLayout(state.layout);
   const liveText = live?.text.trim() ?? "";
-  const draftLang = liveText && live ? detectLang(liveText, live.sourceLang) : null;
+  const draftLang = liveText && live ? (live.draftLang ?? detectLang(liveText, live.sourceLang)) : null;
   const html = shown.map((lang) => renderWindow(lang, state.lines ?? [], live, state, draftLang)).join("");
   return { shown, html };
 }
