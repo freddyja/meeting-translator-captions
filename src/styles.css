@@ -1253,12 +1253,6 @@ button, input, select, textarea {
   font-weight: 600;
 }
 
-.ui-lang-hint {
-  margin: 0;
-  font-size: 0.95rem;
-  line-height: 1.35;
-}
-
 .join-setup .ui-lang,
 .join-dock .ui-lang,
 .phone-screen .ui-lang {

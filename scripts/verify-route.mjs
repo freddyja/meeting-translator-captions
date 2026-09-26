@@ -809,7 +809,8 @@ assert(t("createRoom") === "Criar sala", "Portuguese create-room label");
 assert(t("spokenQuestion") === "Em que idioma você vai falar?", "Portuguese spoken question");
 assert(t("join") === "Entrar" && t("send") === "Enviar", "Portuguese join and send");
 assert(t("start") === "Iniciar" && t("stop") === "Parar", "Portuguese mic buttons");
-assert(t("uiLangHint").includes("Falado"), "Portuguese hint says Spoken still sets the microphone");
+assert(t("spokenLanguage") === "Idioma falado", "Portuguese spoken label stays independent of interface language");
+assert(t("uiLangTagline").includes("grupos"), "Portuguese tagline still translates");
 assert(displayCopy("Could not reclaim the mic.") === "Não foi possível retomar o microfone.", "Portuguese reclaim error");
 const localeNote = localeRejectedMessage("pt-BR", "language-not-supported");
 assert(displayCopy(localeNote).includes("pt-BR") && displayCopy(localeNote).includes("Safari"), "Portuguese Safari rejection names the locale");
@@ -822,8 +823,15 @@ const tvLang = uiLangSwitcherHtml("tv");
 assert(tvLang.includes(">EN<") && tvLang.includes(">ES<") && tvLang.includes(">PT<"), "TV language picker uses EN ES PT");
 assert(!tvLang.includes(">English<") && !tvLang.includes(">Español<") && !tvLang.includes(">Português<"), "TV language picker omits full names");
 assert(tvLang.includes("ui-lang-tv"), "TV language picker stays on one row");
-const hostLang = uiLangSwitcherHtml();
-assert(hostLang.includes(">English<") && hostLang.includes(">Español<") && hostLang.includes(">Português<"), "host interface language keeps full names");
+const homeLang = uiLangSwitcherHtml("home");
+assert(
+  homeLang.includes(">English<") && homeLang.includes(">Español<") && homeLang.includes(">Português<"),
+  "Create screen keeps interface language names",
+);
+assert(homeLang.includes("uiLangTagline"), "Create screen keeps the tagline with the interface picker");
+const entryLang = uiLangSwitcherHtml("entry");
+assert(entryLang.includes(">English<") && entryLang.includes("uiLangLabel"), "Join setup keeps the interface language picker");
+assert(!entryLang.includes("uiLangHint"), "interface picker no longer includes the host-only hint");
 
 const memory = new Map();
 globalThis.localStorage = {
