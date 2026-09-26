@@ -231,6 +231,7 @@ async function checkMockAnyDirection() {
 }
 
 async function checkSpeechFiling() {
+  assert(speechSourceLang("mi casa es Roja", "en", "en-US") === "es", "screenshot: mi casa es Roja is Spanish even when the chip is English");
   assert(speechSourceLang("pueden sentarse", "es", "en-US") === "es", "stuck en-US recognizer does not file Spanish speech as English");
   assert(speechSourceLang("pueden sentarse", "pt", "en-US") === "pt", "stuck en-US recognizer does not file Portuguese speech as English");
   assert(speechSourceLang("Hola amigos", "en", "en-US") === "es", "Spanish speech markers still leave the English chip");
@@ -300,6 +301,33 @@ async function checkSpeechFiling() {
       assert(!isIdentityTranslation(sample.text, result.text.en || ""), `EN pane still has the ${sample.from} transcript: ${result.text.en}`);
     }
   }
+
+  // Live bug: trustHint + Spoken EN filed this as English, so EN kept the
+  // transcript while PT still translated ("2. Mi casa es roja" / "minha casa é vermelha").
+  const casa = await translateCaption("mi casa es Roja", "en", ["en", "es", "pt"], {
+    provider: "mock",
+    trustHint: true,
+  });
+  assert(casa.from === "es", `mi casa es Roja filed as ${casa.from}`);
+  assert(/house/i.test(casa.text.en), `EN pane for mi casa es Roja: ${casa.text.en}`);
+  assert(!isIdentityTranslation("mi casa es Roja", casa.text.en || ""), `EN pane still Spanish: ${casa.text.en}`);
+  assert(String(casa.text.es).toLowerCase().includes("casa"), "ES pane keeps the Spanish house");
+
+  const welcome = await translateCaption("Welcome everyone", "en", ["en", "es", "pt"], {
+    provider: "mock",
+    trustHint: true,
+  });
+  assert(welcome.from === "en", `English speech filed as ${welcome.from}`);
+  assert(/bienvenid/i.test(welcome.text.es), `EN→ES: ${welcome.text.es}`);
+  assert(/bem-vind|todos/i.test(welcome.text.pt), `EN→PT: ${welcome.text.pt}`);
+
+  const noite = await translateCaption("Boa noite a todos", "pt", ["en", "es", "pt"], {
+    provider: "mock",
+    trustHint: true,
+  });
+  assert(noite.from === "pt", `Portuguese speech filed as ${noite.from}`);
+  assert(/night|evening|everyone/i.test(noite.text.en), `PT→EN: ${noite.text.en}`);
+  assert(!isIdentityTranslation("Boa noite a todos", noite.text.en || ""), `PT left in EN: ${noite.text.en}`);
 }
 
 async function checkSpokenPaneMatrix() {

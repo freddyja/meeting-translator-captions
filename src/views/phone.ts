@@ -393,12 +393,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     renderDynamic();
     const epoch = publishEpoch;
     const hint = speechLang ?? state.sourceLang;
-    const translated = await translateAll(
-      translator,
-      spoken,
-      hint,
-      speechLang ? { trustHint: true } : undefined,
-    );
+    const translated = await translateAll(translator, spoken, hint);
     const from = spokenKey(spoken, translated, hint);
     if (epoch !== publishEpoch) return;
     lastCaptionWasMock = translator.id === "mock";
