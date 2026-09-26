@@ -1,8 +1,10 @@
-import { detectLang } from "../src/translate/detect.ts";
-import { deeplTranslate } from "../src/translate/deepl.ts";
+import { detectLang, neutralLang } from "../src/translate/detect.ts";
+import { deeplDetectLang, deeplTranslate } from "../src/translate/deepl.ts";
 import { createMinTTranslator } from "../src/translate/mint.ts";
 import { mockTranslator } from "../src/translate/mock.ts";
 import { createMyMemoryTranslator, isIdentityTranslation } from "../src/translate/mymemory.ts";
+import { foreignEchoes, stripForeignEchoes } from "../src/translate/panes.ts";
+import { wordCount } from "../src/translate/text.ts";
 import type { Translator } from "../src/translate/types.ts";
 import { isLang, type Lang } from "../src/types.ts";
 
@@ -227,28 +229,18 @@ export function effectiveTranslateProvider(requestProvider?: string): TranslateP
   return resolveTranslateProvider();
 }
 
-export async function translateCaption(
-  text: string,
-  hintedFrom: Lang,
-  targets: Lang[] = LANGS,
-  options?: { provider?: string },
-): Promise<{ provider: TranslateProvider; text: Record<Lang, string>; from: Lang }> {
-  const source = text.trim();
-  const from = detectLang(source, hintedFrom);
-  const provider = effectiveTranslateProvider(options?.provider);
-  if (!source) {
-    return { provider, from, text: emptyLocalized("", from) };
-  }
-  if (source.length > MAX_TEXT) {
-    throw Object.assign(new Error("Text is too long"), { status: 400 });
-  }
-
+async function renderCaption(
+  source: string,
+  from: Lang,
+  targets: Lang[],
+  provider: TranslateProvider,
+): Promise<{ provider: TranslateProvider; text: Record<Lang, string> }> {
   const unique = [...new Set(targets.filter((lang) => lang !== from))];
   const out = emptyLocalized(source, from);
 
   if (provider === "mock") {
     await fillTargets(mockTranslator, source, from, unique, out);
-    return { provider: "mock", from, text: out };
+    return { provider: "mock", text: out };
   }
 
   const used = new Set<TranslateProvider>();
@@ -270,8 +262,70 @@ export async function translateCaption(
           : used.has("mock")
             ? "mock"
             : provider;
-  if (source) noteLiveProvider(reported);
-  return { provider: reported, from, text: out };
+  return { provider: reported, text: out };
+}
+
+/**
+ * Hint is the Spoken chip. Markers override it. Unmarked speech is probed
+ * with DeepL when a key is set, then other source languages are tried if a
+ * foreign pane still echoes the transcript.
+ */
+async function resolveSpoken(source: string, hint: Lang, allowProbe: boolean): Promise<Lang> {
+  const marked = neutralLang(source);
+  if (marked) return marked;
+  if (!allowProbe || wordCount(source) < 2 || !deeplKey()) return detectLang(source, hint);
+  const cacheKey = `detect:${source}`;
+  const cached = cacheGet(cacheKey);
+  if (cached === "en" || cached === "es" || cached === "pt") return cached;
+  try {
+    const detected = await deeplDetectLang(source, { authKey: deeplKey(), apiUrl: deeplApiUrlOverride() });
+    if (detected) {
+      cacheSet(cacheKey, detected);
+      return detected;
+    }
+  } catch (err) {
+    console.warn("[translate] spoken-language probe failed");
+    console.warn(err instanceof Error ? err.message : "detect error");
+  }
+  return hint;
+}
+
+export async function translateCaption(
+  text: string,
+  hintedFrom: Lang,
+  targets: Lang[] = LANGS,
+  options?: { provider?: string },
+): Promise<{ provider: TranslateProvider; text: Record<Lang, string>; from: Lang }> {
+  const source = text.trim();
+  const provider = effectiveTranslateProvider(options?.provider);
+  if (!source) {
+    const from = detectLang(source, hintedFrom);
+    return { provider, from, text: emptyLocalized("", from) };
+  }
+  if (source.length > MAX_TEXT) {
+    throw Object.assign(new Error("Text is too long"), { status: 400 });
+  }
+
+  const marked = neutralLang(source);
+  const spoken = await resolveSpoken(source, hintedFrom, provider !== "mock");
+  const attempts = [spoken, ...LANGS.filter((lang) => lang !== spoken)];
+  let winner = await renderCaption(source, attempts[0], targets, provider);
+  let from = attempts[0];
+  // A confident marker match is the spoken language. Only unmarked speech
+  // may try the other languages when the first filing still echoes.
+  if (!marked && foreignEchoes(source, from, winner.text)) {
+    for (const alt of attempts.slice(1)) {
+      const next = await renderCaption(source, alt, targets, provider);
+      if (!foreignEchoes(source, alt, next.text)) {
+        winner = next;
+        from = alt;
+        break;
+      }
+    }
+  }
+
+  if (provider !== "mock" && source) noteLiveProvider(winner.provider);
+  return { provider: winner.provider, from, text: stripForeignEchoes(source, from, winner.text) };
 }
 
 function cacheGet(key: string): string | undefined {

@@ -1,6 +1,7 @@
 import { finalizedLines } from "../caption-history.ts";
 import { escapeHtml } from "../dom.ts";
 import { displaySpeaker, t } from "../i18n.ts";
+import { detectLang } from "../translate/detect.ts";
 import {
   LANG_LABEL,
   LANG_SHORT,
@@ -36,7 +37,13 @@ function renderSpoken(speaker: string, text: string, className: string): string 
   return `<p class="${className}">${name}${body}</p>`;
 }
 
-function renderWindow(lang: Lang, lines: CaptionLine[], live: LiveCaption | null | undefined, state: CaptionBoardState): string {
+function renderWindow(
+  lang: Lang,
+  lines: CaptionLine[],
+  live: LiveCaption | null | undefined,
+  state: CaptionBoardState,
+  draftLang: Lang | null,
+): string {
   const visible = finalizedLines(lines).filter((line) => line.text[lang]?.trim());
   const liveText = live?.text.trim() ?? "";
   const active = speakerOf(live?.speaker) || speakerOf(state.floor?.holderName);
@@ -53,7 +60,7 @@ function renderWindow(lang: Lang, lines: CaptionLine[], live: LiveCaption | null
           .join("");
   let extra = "";
   if (liveText) {
-    const draft = lang === live?.sourceLang ? liveText : t("listeningEllipsis");
+    const draft = lang === draftLang ? liveText : t("listeningEllipsis");
     extra = renderSpoken(displaySpeaker(active), draft, "line interim");
   } else if (floorChanged) {
     extra = renderSpoken(displaySpeaker(active), state.listening ? t("listeningEllipsis") : "", "line speaker-live");
@@ -74,7 +81,9 @@ export function renderCaptionBoard(
   langs?: readonly Lang[],
 ): { shown: Lang[]; html: string } {
   const shown = langs?.length ? [...langs] : langsForLayout(state.layout);
-  const html = shown.map((lang) => renderWindow(lang, state.lines ?? [], live, state)).join("");
+  const liveText = live?.text.trim() ?? "";
+  const draftLang = liveText && live ? detectLang(liveText, live.sourceLang) : null;
+  const html = shown.map((lang) => renderWindow(lang, state.lines ?? [], live, state, draftLang)).join("");
   return { shown, html };
 }
 

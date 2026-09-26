@@ -8,7 +8,9 @@ import { tvQrSvg } from "../qr";
 import { connectRoom, type RoomConnection } from "../realtime/client";
 import { goto, joinUrl, tvUrl } from "../router";
 import { createWebSpeechProvider, isNonFatalSpeechNote, isSpeechFallbackMessage } from "../stt/web-speech";
-import { createTranslator, detectLang, translateAll } from "../translate";
+import { readSpokenLang, writeSpokenLang } from "../spoken-pref";
+import { createTranslator, translateAll } from "../translate";
+import { spokenKey } from "../translate/panes";
 import { paintCaptionBoard } from "./caption-board";
 import {
   emptyFloor,
@@ -48,7 +50,7 @@ const micIcon = `
 export function mountPhone(root: HTMLElement, room: string): () => void {
   const translator = createTranslator();
   const speech = createWebSpeechProvider();
-  let state = emptyState(room);
+  let state = { ...emptyState(room), sourceLang: readSpokenLang() };
   let peers: PeerCounts = { phones: 1, tvs: 0, guests: 0 };
   let connStatus: ConnStatus = "connecting";
   let error = "";
@@ -62,7 +64,6 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
   let smartViewMode = false;
   let liveInterim = "";
   let lastCaptionWasMock = false;
-  let sourceTouched = false;
   let pendingFinal = "";
   let peerId: string | null = null;
   let floor: FloorState = emptyFloor();
@@ -388,8 +389,8 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     liveInterim = "";
     renderDynamic();
     const epoch = publishEpoch;
-    const from = detectLang(spoken, state.sourceLang);
-    const translated = await translateAll(translator, spoken, from);
+    const translated = await translateAll(translator, spoken, state.sourceLang);
+    const from = spokenKey(spoken, translated, state.sourceLang);
     if (epoch !== publishEpoch) return;
     lastCaptionWasMock = translator.id === "mock";
     paintLimitedBanner();
@@ -552,7 +553,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     if (!btn?.dataset.lang) return;
     const sourceLang = btn.dataset.lang as Lang;
     if (!isLang(sourceLang)) return;
-    sourceTouched = true;
+    writeSpokenLang(sourceLang);
     if (sourceLang !== state.sourceLang) liveInterim = "";
     // While listening, setLang retargets the recognizer in this tap.
     // Chrome rebuilds it. iOS reuses the original object and only changes lang.
@@ -840,12 +841,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
           room,
           floor,
           listening: false,
-          sourceLang:
-            sourceTouched && isLang(state.sourceLang)
-              ? state.sourceLang
-              : isLang(next.sourceLang)
-                ? next.sourceLang
-                : state.sourceLang,
+          sourceLang: state.sourceLang,
           lines: finalizedLines(next.lines ?? []),
         };
         speech.setLang(speechLocale(state.sourceLang));

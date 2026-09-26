@@ -15,7 +15,9 @@ import { connectRoom, type RoomConnection } from "../realtime/client";
 import { goto } from "../router";
 import { detectSpeechCapability } from "../stt/capability";
 import { createWebSpeechProvider, isNonFatalSpeechNote, isSpeechFallbackMessage } from "../stt/web-speech";
-import { createTranslator, detectLang, translateAll } from "../translate";
+import { readSpokenLang, writeSpokenLang } from "../spoken-pref";
+import { createTranslator, translateAll } from "../translate";
+import { spokenKey } from "../translate/panes";
 import { paintCaptionBoard } from "./caption-board";
 import {
   emptyFloor,
@@ -53,7 +55,6 @@ const micIcon = `
 
 const NAME_KEY = "mt-guest-name";
 const WATCH_KEY = "mt-guest-watch";
-const SPOKEN_KEY = "mt-guest-spoken";
 
 export function mountJoin(root: HTMLElement, room: string): () => void {
   const translator = createTranslator();
@@ -368,8 +369,8 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     liveInterim = "";
     renderDynamic();
     const epoch = publishEpoch;
-    const from = detectLang(spoken, sourceLang);
-    const translated = await translateAll(translator, spoken, from);
+    const translated = await translateAll(translator, spoken, sourceLang);
+    const from = spokenKey(spoken, translated, sourceLang);
     if (epoch !== publishEpoch) return;
     lastCaptionWasMock = translator.id === "mock";
     const line: CaptionLine = {
@@ -594,7 +595,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
           ...next,
           room,
           floor,
-          sourceLang: holding ? sourceLang : isLang(next.sourceLang) ? next.sourceLang : sourceLang,
+          sourceLang,
           listening: holding ? state.listening : Boolean(next.listening),
           lines: holding ? state.lines : finalizedLines(next.lines ?? []),
         };
@@ -681,23 +682,6 @@ function readWatchLang(): WatchLang {
 function writeWatchLang(value: WatchLang) {
   try {
     localStorage.setItem(WATCH_KEY, value);
-  } catch {
-    /* private mode / blocked storage */
-  }
-}
-
-function readSpokenLang(): Lang {
-  try {
-    const value = localStorage.getItem(SPOKEN_KEY);
-    return isLang(value) ? value : "en";
-  } catch {
-    return "en";
-  }
-}
-
-function writeSpokenLang(value: Lang) {
-  try {
-    localStorage.setItem(SPOKEN_KEY, value);
   } catch {
     /* private mode / blocked storage */
   }

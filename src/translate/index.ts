@@ -4,6 +4,7 @@ import { createMinTTranslator } from "./mint";
 import { mockTranslator } from "./mock";
 import { createLibreTranslator } from "./libretranslate";
 import { createMyMemoryTranslator } from "./mymemory";
+import { stripForeignEchoes, translateUntilSpoken } from "./panes";
 import { passthroughTranslator } from "./passthrough";
 import { createServerTranslator } from "./server";
 import { translateAll as runTranslateAll, type Translator } from "./types";
@@ -40,7 +41,11 @@ function withOfflineMode(primary: Translator): Translator {
       return active().translate(text, from, to);
     },
     translateAll(text, from) {
-      return runTranslateAll(active(), text, detectLang(text, from));
+      const engine = active();
+      if (isOfflineMeeting() || engine.id === "mock") {
+        return translateUntilSpoken((value, spoken) => runTranslateAll(engine, value, spoken), text, from);
+      }
+      return runTranslateAll(engine, text, detectLang(text, from));
     },
   };
 }
@@ -91,11 +96,11 @@ function withFallback(primary: Translator): Translator {
         }
       }
       lastId = "mock";
-      return {
+      return stripForeignEchoes(text, from, {
         en: from === "en" ? text : await safeMock(text, from, "en"),
         es: from === "es" ? text : await safeMock(text, from, "es"),
         pt: from === "pt" ? text : await safeMock(text, from, "pt"),
-      };
+      });
     },
   };
 }

@@ -3,10 +3,13 @@ import {
   DEEPL_PRO_HOST,
   deeplSourceLang,
   deeplTargetLang,
+  langFromDeepLProbe,
+  mapDeepLLang,
   parseDeepLResponse,
   resolveDeepLApiUrl,
 } from "../src/translate/deepl.ts";
 import { detectLang } from "../src/translate/detect.ts";
+import { foreignEchoes, spokenKey, stripForeignEchoes } from "../src/translate/panes.ts";
 import { createMinTTranslator, parseMinTResponse } from "../src/translate/mint.ts";
 import { parseMyMemoryResponse, createMyMemoryTranslator, isIdentityTranslation } from "../src/translate/mymemory.ts";
 import {
@@ -135,6 +138,19 @@ function checkDetectLang() {
   assert(detectLang("Bienvenidos a todos", "es") === "es", "keep es hint");
   assert(detectLang("Welcome everyone", "en") === "en", "keep en hint");
   assert(detectLang("Ok", "es") === "es", "short shared word keeps hint");
+  assert(detectLang("Hola amigos", "en") === "es", "hola amigos is Spanish even when Spoken is English");
+  assert(detectLang("Hola hermanos", "en") === "es", "hola hermanos is Spanish even when Spoken is English");
+  assert(detectLang("El cafe es bueno", "en") === "es", "el cafe es bueno is Spanish even when Spoken is English");
+  assert(detectLang("Boa noite a todos", "en") === "pt", "boa noite is Portuguese even when Spoken is English");
+  assert(detectLang("Welcome everyone", "pt") === "en", "english overrides pt hint");
+  assert(mapDeepLLang("EN-US") === "en" && mapDeepLLang("ES") === "es" && mapDeepLLang("PT-BR") === "pt", "DeepL detect codes");
+  assert(mapDeepLLang("FR") === null, "other DeepL codes are not a caption language");
+  assert(
+    langFromDeepLProbe("en", undefined, "Bad request. Reason: Source and target language are equal.") === "en",
+    "DeepL equal-language probe means the text is already English",
+  );
+  assert(langFromDeepLProbe("en", "ES") === "es", "DeepL detected Spanish against an English probe");
+  assert(isIdentityTranslation("Hola amigos", "Hola, amigos"), "punctuation-only copy is still the source text");
 }
 
 async function checkMockAnyDirection() {
@@ -194,6 +210,85 @@ async function checkMockAnyDirection() {
   assert(/welcome|thank/i.test(String(rescued.text.en)), `rescued EN pane: ${rescued.text.en}`);
   assert(/bienvenid|gracias/i.test(String(rescued.text.es)), "rescued ES pane stays Spanish");
   assert(/bem-vind|obrigado|todos/i.test(String(rescued.text.pt)), `rescued PT pane: ${rescued.text.pt}`);
+
+  const echoed = stripForeignEchoes("Hola amigos", "en", {
+    en: "Hola amigos",
+    es: "Hola, amigos",
+    pt: "Olá amigos",
+  });
+  assert(echoed.en === "Hola amigos", "source pane keeps the transcript");
+  assert(echoed.es === "", `Spanish echo is not left in the Spanish slot when filed as English: ${echoed.es}`);
+  assert(/ol/i.test(echoed.pt), "a real Portuguese line stays");
+  assert(
+    foreignEchoes("pueden sentarse", "en", { en: "pueden sentarse", es: "pueden sentarse", pt: "podem sentar-se" }),
+    "Spanish left in the Spanish pane counts as a missed English filing",
+  );
+  assert(
+    spokenKey("Hola amigos", { en: "Hello friends", es: "Hola amigos", pt: "Olá amigos" }, "en") === "es",
+    "coalesce on the pane that holds the transcript, not the Spoken chip",
+  );
+}
+
+async function checkSpokenPaneMatrix() {
+  const samples = [
+    {
+      hint: "en",
+      text: "Hola amigos",
+      from: "es",
+      expect: { en: /hello|friend/i, pt: /ol[aá]|amig/i },
+    },
+    {
+      hint: "es",
+      text: "Hola amigos",
+      from: "es",
+      expect: { en: /hello|friend/i, pt: /ol[aá]|amig/i },
+    },
+    {
+      hint: "en",
+      text: "Welcome everyone",
+      from: "en",
+      expect: { es: /bienvenid|todos/i, pt: /bem-vind|todos/i },
+    },
+    {
+      hint: "pt",
+      text: "Welcome everyone",
+      from: "en",
+      expect: { es: /bienvenid|todos/i, pt: /bem-vind|todos/i },
+    },
+    {
+      hint: "en",
+      text: "Boa noite a todos",
+      from: "pt",
+      expect: { en: /night|evening|everyone/i, es: /noche|todos/i },
+    },
+    {
+      hint: "es",
+      text: "Boa noite a todos",
+      from: "pt",
+      expect: { en: /night|evening|everyone/i, es: /noche|todos/i },
+    },
+    {
+      hint: "en",
+      text: "pueden sentarse",
+      from: "es",
+      expect: { en: /seated|you may/i, pt: /sent/i },
+    },
+  ];
+
+  for (const sample of samples) {
+    const result = await translateCaption(sample.text, sample.hint, ["en", "es", "pt"], { provider: "mock" });
+    assert(result.from === sample.from, `${sample.hint} hint + "${sample.text}" filed as ${result.from}, want ${sample.from}`);
+    assert(
+      String(result.text[sample.from]).toLowerCase().includes(sample.text.slice(0, 6).toLowerCase()),
+      `${sample.from} pane keeps "${sample.text}" (${result.text[sample.from]})`,
+    );
+    for (const [to, pattern] of Object.entries(sample.expect)) {
+      const value = String(result.text[to] || "");
+      assert(value.trim().length > 0, `${sample.text} ${sample.from}->${to} empty`);
+      assert(!isIdentityTranslation(sample.text, value), `${sample.text} ${to} pane still source: ${value}`);
+      assert(pattern.test(value), `${sample.text} ${sample.from}->${to} unexpected: ${value}`);
+    }
+  }
 }
 
 function checkMyMemoryParser() {
@@ -314,6 +409,7 @@ const checks = [
   ["MinT response parser", checkMinTParser],
   ["mock request override", checkMockOverride],
   ["mock any-direction EN/ES/PT", checkMockAnyDirection],
+  ["spoken EN/ES/PT pane matrix", checkSpokenPaneMatrix],
 ];
 
 for (const [name, fn] of checks) {

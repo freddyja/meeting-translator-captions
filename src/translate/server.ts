@@ -1,5 +1,6 @@
 import { isOfflineMeeting } from "../offline-mode";
 import { isLang, type Lang } from "../types";
+import { stripForeignEchoes } from "./panes";
 import type { Translator } from "./types";
 
 type TranslateResponse = {
@@ -32,11 +33,11 @@ export function createServerTranslator(): Translator {
         throw new Error("Translate API returned no map");
       }
       const sourceLang = isLang(result.from) ? result.from : from;
-      return {
+      return stripForeignEchoes(text, sourceLang, {
         en: value.en || (sourceLang === "en" ? text : ""),
         es: value.es || (sourceLang === "es" ? text : ""),
         pt: value.pt || (sourceLang === "pt" ? text : ""),
-      };
+      });
     },
   };
 }
