@@ -18,6 +18,8 @@ import {
   uiLangSwitcherHtml,
   watchChipsHtml,
 } from "../i18n";
+import { mountExtraInputs } from "../input/extra-inputs";
+import { swapGuestLangs } from "../lang-swap";
 import { connectRoom, type RoomConnection } from "../realtime/client";
 import { goto } from "../router";
 import { detectSpeechCapability } from "../stt/capability";
@@ -151,6 +153,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
             <p class="control-label" data-i18n="spokenLanguage"></p>
             <div class="chips" data-source></div>
           </div>
+          <button class="chip swap-langs" data-swap type="button" data-i18n-aria="swapAria"><span aria-hidden="true">⇄</span> <span data-i18n="swapLangs"></span></button>
           <div class="join-watch">
             <p class="control-label" id="join-watch-label" data-i18n="watch"></p>
             <div class="chips" data-watch-box role="group" aria-labelledby="join-watch-label"></div>
@@ -167,6 +170,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
           <input name="caption" autocomplete="off" autocorrect="on" autocapitalize="sentences" enterkeyhint="send" />
           <button class="primary" type="submit" data-i18n="send"></button>
         </form>
+        <div class="extra-inputs" data-extra-inputs></div>
         ${creditFooter()}
       </div>
     </section>
@@ -178,6 +182,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   ).join("");
 
   const watchBox = root.querySelector("[data-watch-box]") as HTMLElement;
+  const swapBtn = root.querySelector("[data-swap]") as HTMLButtonElement;
 
   const typeForm = root.querySelector("[data-type]") as HTMLFormElement;
   const typeInput = typeForm.elements.namedItem("caption") as HTMLInputElement;
@@ -271,6 +276,9 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
       btn.classList.toggle("active", on);
       btn.setAttribute("aria-pressed", String(on));
     }
+    const canSwap = Boolean(swapGuestLangs(sourceLang, watchLang));
+    swapBtn.disabled = !canSwap;
+    swapBtn.title = canSwap ? t("swapAria") : t("swapNeedsOne");
     paintCaptionBoard(
       board,
       { layout: state.layout, lines: finalizedLines(state.lines), listening: state.listening, floor },
@@ -515,6 +523,28 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     renderDynamic();
   };
 
+  const onSwap = () => {
+    const next = swapGuestLangs(sourceLang, watchLang);
+    if (!next) {
+      error = t("swapNeedsOne");
+      renderDynamic();
+      return;
+    }
+    if (error === t("swapNeedsOne")) error = "";
+    sourceLang = next.spoken;
+    watchLang = next.watch;
+    liveInterim = "";
+    writeSpokenLang(sourceLang);
+    writeWatchLang(watchLang);
+    // Same tap as a Spoken chip: iOS reuses the first recognizer and only changes lang.
+    speech.setLang(speechLocale(sourceLang), true);
+    if (isFloorHolder(floor, peerId)) {
+      state = { ...state, sourceLang };
+      push();
+    }
+    renderDynamic();
+  };
+
   const onName = () => {
     displayName = sanitizePeerName(canonicalRole(nameInput.value, "Guest"), "Guest");
     writeGuestName(displayName);
@@ -696,6 +726,15 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   document.addEventListener("visibilitychange", onVisibility);
   sourceBox.addEventListener("click", onSource);
   watchBox.addEventListener("click", onWatch);
+  swapBtn.addEventListener("click", onSwap);
+  const unmountExtra = mountExtraInputs({
+    bar: root.querySelector("[data-extra-inputs]") as HTMLElement,
+    dialogHost: screenEl,
+    form: typeForm,
+    input: typeInput,
+    lang: () => sourceLang,
+    translate: (text, from) => translateAll(translator, text, from),
+  });
   nameInput.addEventListener("change", onName);
   root.querySelector("[data-home]")?.addEventListener("click", onHome);
   typeForm.addEventListener("submit", onType);
@@ -724,6 +763,8 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     els.mic.removeEventListener("click", onMic);
     sourceBox.removeEventListener("click", onSource);
     watchBox.removeEventListener("click", onWatch);
+    swapBtn.removeEventListener("click", onSwap);
+    unmountExtra();
     nameInput.removeEventListener("change", onName);
     typeForm.removeEventListener("submit", onType);
     setupSource.removeEventListener("click", onSetupSource);
