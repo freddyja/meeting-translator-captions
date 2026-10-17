@@ -13,7 +13,10 @@ import { bindUiLang, displayCopy, t, uiLangSwitcherHtml } from "../i18n";
 import { bindLocalSetup, localSetupInnerHtml } from "../local-setup";
 import { bindOfflineModeToggle, isOfflineMeeting } from "../offline-mode";
 import { tvQrSvg } from "../qr";
+import { mountExtraInputs } from "../input/extra-inputs";
+import { swapHostLangs } from "../lang-swap";
 import { connectRoom, type RoomConnection } from "../realtime/client";
+import { createHandsFreeTurns, handsFreePair, type HandsFreeTurns } from "../stt/hands-free";
 import { withLinkToken } from "../auth";
 import { goto, joinUrl, tvUrl as plainTvUrl } from "../router";
 
@@ -87,6 +90,13 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
   let floor: FloorState = emptyFloor();
   /** Set by a fatal speech error; checked after an in-flight floor claim. */
   let speechFailed = false;
+  /** Hands-free two-person mode is switched on. */
+  let handsFree = false;
+  /** Turn-taking for a live hands-free mic; null when the mic is off or in normal mode. */
+  let turns: HandsFreeTurns | null = null;
+  let handsFreeClaim: Promise<boolean> | null = null;
+  /** Bumped on every hands-free final, so a stale quiet-gap release is skipped. */
+  let turnSeq = 0;
 
   const push = () => conn?.push(state);
 
@@ -124,6 +134,8 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
             <p class="hint" data-error></p>
             <p class="floor-banner" data-floor></p>
             <button class="secondary floor-reclaim" data-reclaim type="button" hidden data-i18n="reclaimMic"></button>
+            <button class="chip hands-free-toggle" data-hands-free type="button" aria-pressed="false" data-i18n="handsFree" data-i18n-aria="handsFreeAria"></button>
+            <p class="hint hands-free-note" data-hands-free-note hidden></p>
             <p class="hint mic-chrome-hint" data-i18n="micChromeHint"></p>
           </div>
 
@@ -140,6 +152,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
               <p class="control-label" data-i18n="spokenLanguage"></p>
               <div class="chips" data-source></div>
             </div>
+            <button class="chip swap-langs" data-swap type="button" data-i18n-aria="swapAria"><span aria-hidden="true">⇄</span> <span data-i18n="swapLangs"></span></button>
             <div>
               <p class="control-label" data-i18n="watchLanguage"></p>
               <div class="chips" data-layouts></div>
@@ -157,6 +170,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
               <input name="caption" autocomplete="off" enterkeyhint="send" data-i18n-placeholder="orTypeCaption" />
               <button class="primary" type="submit" data-i18n="send"></button>
             </form>
+            <div class="extra-inputs" data-extra-inputs></div>
           </div>
         </div>
       </div>
@@ -274,6 +288,9 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
   const joinUrlEl = root.querySelector("[data-join-phones-url]") as HTMLElement;
   const copyJoinBtn = root.querySelector("[data-copy-join]") as HTMLButtonElement;
   const reclaimBtn = root.querySelector("[data-reclaim]") as HTMLButtonElement;
+  const swapBtn = root.querySelector("[data-swap]") as HTMLButtonElement;
+  const handsFreeBtn = root.querySelector("[data-hands-free]") as HTMLButtonElement;
+  const handsFreeNote = root.querySelector("[data-hands-free-note]") as HTMLElement;
   const screen = root.querySelector(".phone-screen") as HTMLElement;
   const smartLayer = root.querySelector("[data-smart-view-layer]") as HTMLElement;
   const smartEnter = root.querySelector("[data-smart-view-mode]") as HTMLButtonElement;
@@ -317,16 +334,18 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     // Offline, the floor snapshot is stale: say Reconnecting, not "someone else".
     const blocked = live && heldByOther;
     const holding = isFloorHolder(floor, peerId);
+    // Hands-free keeps the mic on between turns, without holding the floor.
+    const micOn = (holding && state.listening) || Boolean(turns);
     const downNote = connStatus === "waking" ? t("wakingServer") : t("reconnecting");
     const tvNote = peers.tvs > 0 ? t("tvConnected", { n: peers.tvs }) : t("waitingForTv");
     const guestNote = peers.guests > 0 ? t("onPhonesSuffix", { n: peers.guests }) : "";
     const connNote = live ? `${tvNote}${guestNote}` : connStatus === "connecting" ? t("connecting") : downNote;
     els.status.textContent = state.listening ? t("listeningDot", { note: connNote }) : connNote;
     els.dot.className = `dot ${state.listening ? "listening" : connStatus === "live" ? "live" : "offline"}`;
-    els.mic.classList.toggle("hot", holding && state.listening);
-    els.mic.disabled = blocked;
-    els.mic.setAttribute("aria-pressed", String(holding && state.listening));
-    els.micLabel.textContent = holding && state.listening ? t("stop") : blocked ? t("wait") : t("start");
+    els.mic.classList.toggle("hot", micOn);
+    els.mic.disabled = blocked && !turns;
+    els.mic.setAttribute("aria-pressed", String(micOn));
+    els.micLabel.textContent = micOn ? t("stop") : blocked ? t("wait") : t("start");
     if (heldByOther && !live) {
       els.floor.textContent = downNote;
     } else if (blocked) {
@@ -369,10 +388,10 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     smartLayer.hidden = !smartViewMode;
     if (smartViewMode) syncSmartViewOrientation();
     smartEnter.setAttribute("aria-pressed", String(smartViewMode));
-    smartMic.classList.toggle("hot", holding && state.listening);
-    smartMic.disabled = blocked;
-    smartMic.setAttribute("aria-pressed", String(holding && state.listening));
-    els.smartMicLabel.textContent = holding && state.listening ? t("stop") : blocked ? t("wait") : t("start");
+    smartMic.classList.toggle("hot", micOn);
+    smartMic.disabled = blocked && !turns;
+    smartMic.setAttribute("aria-pressed", String(micOn));
+    els.smartMicLabel.textContent = micOn ? t("stop") : blocked ? t("wait") : t("start");
     els.svRoom.textContent = state.room;
     const speaker =
       heldByOther && !live
@@ -398,6 +417,19 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     }
     for (const btn of layoutBox.querySelectorAll<HTMLButtonElement>("[data-layout]")) {
       btn.classList.toggle("active", btn.dataset.layout === state.layout);
+    }
+    const canSwap = Boolean(swapHostLangs(state.sourceLang, state.layout));
+    swapBtn.disabled = !canSwap;
+    swapBtn.title = canSwap ? t("swapAria") : t("swapNeedsOne");
+    handsFreeBtn.classList.toggle("active", handsFree);
+    handsFreeBtn.setAttribute("aria-pressed", String(handsFree));
+    handsFreeNote.hidden = !handsFree;
+    if (handsFree) {
+      const pair = turns?.pair ?? handsFreePair(state.sourceLang, state.layout);
+      const lead = t("handsFreeOn", { a: LANG_SHORT[pair[0]], b: LANG_SHORT[pair[1]] });
+      handsFreeNote.textContent = turns
+        ? `${lead} ${t("handsFreeListening", { lang: LANG_LABEL[turns.listening] })}`
+        : lead;
     }
   }
 
@@ -468,7 +500,64 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     }
   };
 
+  const stopTurns = () => {
+    turns?.stop();
+    turns = null;
+    handsFreeClaim = null;
+  };
+
+  /** Quiet gap after a phrase: give the floor back and listen for the other person. */
+  const endHandsFreeTurn = (nextLang: Lang) => {
+    const seq = turnSeq;
+    liveInterim = "";
+    // Same tap-free path as a timer restart: iOS keeps the first recognizer, only lang changes.
+    speech.setLang(speechLocale(nextLang), true);
+    state = { ...state, sourceLang: nextLang, floor };
+    renderDynamic();
+    // Let the last caption finish translating while we still hold the floor.
+    void publishQueue.then(async () => {
+      if (!turns || seq !== turnSeq || !isFloorHolder(floor, peerId)) {
+        renderDynamic();
+        return;
+      }
+      await conn?.releaseFloor();
+      if (!turns || seq !== turnSeq) return;
+      // listening:false so a later push (layout, swap) cannot silently re-take the floor.
+      setState({ ...state, listening: false });
+    });
+  };
+
+  const startTurns = () => {
+    stopTurns();
+    turns = createHandsFreeTurns({
+      pair: handsFreePair(state.sourceLang, state.layout),
+      listening: state.sourceLang,
+      onTurnEnd: endHandsFreeTurn,
+    });
+  };
+
+  /** Next speaker started talking on a free floor: take it (once) before captions go out. */
+  const claimForHandsFree = () => {
+    if (handsFreeClaim || isFloorHolder(floor, peerId)) return;
+    handsFreeClaim = (async () => {
+      const ok = (await conn?.claimFloor(HOST_NAME)) ?? false;
+      handsFreeClaim = null;
+      if (!turns) return ok;
+      if (!ok) {
+        pendingSpeech = null;
+        renderDynamic();
+        return ok;
+      }
+      setState({ ...state, listening: true });
+      const queued = pendingSpeech;
+      pendingSpeech = null;
+      if (queued?.text.trim()) queuePublish(queued.text, true, queued.lang);
+      return ok;
+    })();
+  };
+
   const stopLocalMic = () => {
+    stopTurns();
     speech.stop();
     releaseWake();
     liveInterim = "";
@@ -477,9 +566,14 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
 
   const onMic = () => {
     error = "";
-    if (isFloorHolder(floor, peerId)) {
+    if (isFloorHolder(floor, peerId) || turns) {
+      const held = isFloorHolder(floor, peerId);
       stopLocalMic();
       pendingSpeech = null;
+      if (!held) {
+        setState({ ...state, listening: false });
+        return;
+      }
       void (async () => {
         await conn?.releaseFloor();
         setState({ ...state, listening: false });
@@ -516,6 +610,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
         return;
       }
       void requestWake();
+      if (handsFree) startTurns();
       setState({ ...state, listening: true });
       const queued = pendingSpeech;
       pendingSpeech = null;
@@ -563,6 +658,30 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
   // Same final-only push as Join. iPhone no-speech-after-words still lands here as one final.
   speech.onResult = (result) => {
     error = "";
+    if (turns) {
+      const lang = turns.heard(result.text, result.isFinal);
+      if (result.isFinal && lang) turnSeq += 1;
+      // One speaker at a time: while someone else holds the floor, this mic only listens.
+      if (floorHeldByOther(floor, peerId)) return;
+      const holdingNow = isFloorHolder(floor, peerId);
+      if (!holdingNow && result.text.trim()) claimForHandsFree();
+      if (result.isFinal) {
+        if (!lang) return;
+        if (lang !== state.sourceLang) {
+          // The words were clearly the other language: follow that speaker.
+          turns.listenIn(lang);
+          turns.heard(result.text, true);
+          speech.setLang(speechLocale(lang), true);
+          state = { ...state, sourceLang: lang, floor };
+        }
+        if (holdingNow) queuePublish(result.text, true, lang);
+        else pendingSpeech = { text: result.text, lang };
+        renderDynamic();
+        return;
+      }
+      if (holdingNow) setLiveInterim(result.text, turns.listening);
+      return;
+    }
     const heard = speechSourceLang(result.text, state.sourceLang, result.locale);
     if (result.isFinal) {
       if (isFloorHolder(floor, peerId)) {
@@ -586,6 +705,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     // Every other error ends recognition (the provider already cleared
     // wantListening). Never sit on the floor with a dead mic.
     speechFailed = true;
+    stopTurns();
     speech.stop();
     releaseWake();
     if (isSpeechFallbackMessage(message)) typeForm.hidden = false;
@@ -607,6 +727,52 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     // Chrome rebuilds the recognizer. iOS reuses the original object and only changes lang.
     setState({ ...state, sourceLang });
     speech.setLang(speechLocale(sourceLang), true);
+    if (turns) {
+      if (turns.pair.includes(sourceLang)) turns.listenIn(sourceLang);
+      else startTurns();
+      renderDynamic();
+    }
+  };
+
+  const onSwap = () => {
+    const next = swapHostLangs(state.sourceLang, state.layout);
+    if (!next) {
+      error = t("swapNeedsOne");
+      renderDynamic();
+      return;
+    }
+    if (error === t("swapNeedsOne")) error = "";
+    writeSpokenLang(next.spoken);
+    liveInterim = "";
+    // Same as tapping both chips: Spoken first so an in-progress draft files correctly.
+    setState({ ...state, sourceLang: next.spoken, layout: next.layout });
+    speech.setLang(speechLocale(next.spoken), true);
+    if (turns) {
+      if (turns.pair.includes(next.spoken)) turns.listenIn(next.spoken);
+      else startTurns();
+      renderDynamic();
+    }
+  };
+
+  const onHandsFree = () => {
+    handsFree = !handsFree;
+    if (handsFree) {
+      // Already speaking: switch to turn-taking now.
+      if (isFloorHolder(floor, peerId) && state.listening) startTurns();
+    } else if (turns) {
+      const held = isFloorHolder(floor, peerId);
+      stopTurns();
+      if (!held) {
+        // Between turns the mic was only listening. Off means off.
+        speech.stop();
+        releaseWake();
+        liveInterim = "";
+        pendingSpeech = null;
+        setState({ ...state, listening: false });
+        return;
+      }
+    }
+    renderDynamic();
   };
 
   const onLayout = (event: Event) => {
@@ -825,6 +991,16 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
   sendBtn.addEventListener("click", onSendTv);
   joinBtn.addEventListener("click", onJoinPhones);
   reclaimBtn.addEventListener("click", onReclaim);
+  swapBtn.addEventListener("click", onSwap);
+  handsFreeBtn.addEventListener("click", onHandsFree);
+  const unmountExtra = mountExtraInputs({
+    bar: root.querySelector("[data-extra-inputs]") as HTMLElement,
+    dialogHost: screen,
+    form: typeForm,
+    input: typeForm.elements.namedItem("caption") as HTMLInputElement,
+    lang: () => state.sourceLang,
+    translate: (text, from) => translateAll(translator, text, from),
+  });
   smartEnter.addEventListener("click", onEnterSmartView);
   smartExit.addEventListener("click", onExitSmartView);
   smartMic.addEventListener("click", onMic);
@@ -966,6 +1142,9 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     typeForm.removeEventListener("submit", onType);
     langList.removeEventListener("click", onLangActions);
     reclaimBtn.removeEventListener("click", onReclaim);
+    swapBtn.removeEventListener("click", onSwap);
+    handsFreeBtn.removeEventListener("click", onHandsFree);
+    unmountExtra();
     joinBtn.removeEventListener("click", onJoinPhones);
     joinDialog.removeEventListener("click", onJoinDialogClick);
     joinDialog.removeEventListener("close", onJoinDialogClose);
