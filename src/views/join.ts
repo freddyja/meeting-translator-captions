@@ -58,6 +58,7 @@ import {
   type PeerCounts,
   type WatchLang,
 } from "../types";
+import { trackSpeech } from "../update/activity";
 
 const micIcon = `
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -72,7 +73,7 @@ const WATCH_KEY = "mt-guest-watch";
 
 export function mountJoin(root: HTMLElement, room: string): () => void {
   const translator = createTranslator();
-  const speech = createWebSpeechProvider();
+  const speech = trackSpeech(createWebSpeechProvider());
   const stt = detectSpeechCapability();
   let state = emptyState(room);
   let peers: PeerCounts = { phones: 1, tvs: 0, guests: 1 };

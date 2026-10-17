@@ -3247,3 +3247,28 @@ button.talk-line:focus-visible {
 .talk-hint[hidden] {
   display: none;
 }
+
+/* ---------- Auto-update pill ---------- */
+.update-pill {
+  position: fixed;
+  left: 50%;
+  bottom: calc(0.9rem + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 90;
+  min-height: 40px;
+  padding: 0.45rem 1rem;
+  border: 2px solid #8ee0d4;
+  border-radius: 999px;
+  background: rgba(6, 16, 20, 0.92);
+  color: #f4fffd;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+
+.update-pill[hidden] {
+  display: none;
+}

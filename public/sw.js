@@ -1,4 +1,7 @@
-const CACHE = "meeting-translator-v12";
+// The build stamps BUILD with the deploy id (vite.config.ts), so every deploy ships a
+// byte-different sw.js and the browser always sees an update.
+const BUILD = "__BUILD_ID__";
+const CACHE = `meeting-translator-v13-${BUILD}`;
 const PRECACHE = [
   "/",
   "/index.html",
@@ -11,15 +14,21 @@ const PRECACHE = [
   "/icon-512-maskable.png",
 ];
 
-const PASS = new Set(["/caption-ws", "/health", "/api/translate", "/api/login", "/api/auth"]);
+const PASS = new Set(["/caption-ws", "/health", "/version.json", "/api/translate", "/api/login", "/api/auth"]);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.addAll(PRECACHE))
-      .then(() => self.skipWaiting()),
+      .then((cache) => cache.addAll(PRECACHE.map((url) => new Request(url, { cache: "reload" }))))
+      // First install: take over now. Updates wait until the page says the
+      // speaker is idle (no live mic, caption or room) and posts SKIP_WAITING.
+      .then(() => (self.registration.active ? undefined : self.skipWaiting())),
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
