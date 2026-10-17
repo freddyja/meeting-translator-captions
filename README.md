@@ -99,6 +99,8 @@ Start recognition inside the tap, before the floor claim finishes. Choosing Spok
 ```bash
 npm run verify:prod
 npm run verify:translate -- --offline
+npm run lint   # strict TypeScript check (src, server, tests)
+npm test       # node:test — relay floor/heartbeat/resume, client reconnect, translate timeout
 npm run verify:translate
 ```
 

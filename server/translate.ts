@@ -4,6 +4,7 @@ import { createMinTTranslator } from "../src/translate/mint.ts";
 import { mockTranslator } from "../src/translate/mock.ts";
 import { createMyMemoryTranslator, isIdentityTranslation } from "../src/translate/mymemory.ts";
 import { foreignEchoes, stripForeignEchoes } from "../src/translate/panes.ts";
+import { hasNothingToTranslate } from "../src/translate/request.ts";
 import { wordCount } from "../src/translate/text.ts";
 import type { Translator } from "../src/translate/types.ts";
 import { isLang, type Lang } from "../src/types.ts";
@@ -188,10 +189,16 @@ async function translateOnePair(
 
   const tryMock = async (): Promise<string> => mockTranslator.translate(source, from, to);
 
+  // Nothing a translator could change (digits, times, punctuation): no chain.
+  if (hasNothingToTranslate(source)) return { text: source, provider: prefer };
+
   if (prefer === "deepl") {
     try {
       const text = await cachedDeepL(source, from, to);
-      if (!isIdentityTranslation(source, text)) return { text, provider: "deepl" };
+      // DeepL answered. An unchanged result is its verdict (a name, "OK"), not a
+      // failure, so skip MyMemory → MinT → mock. translateCaption still retries
+      // other source languages when a foreign pane echoes.
+      return { text, provider: "deepl" };
     } catch (err) {
       console.warn("[translate] DeepL pair failed; trying next", from, to);
       console.warn(err instanceof Error ? err.message : "translate error");
@@ -201,7 +208,8 @@ async function translateOnePair(
   if (prefer === "google") {
     try {
       const text = await googleTranslate(source, from, to);
-      if (!isIdentityTranslation(source, text)) return { text, provider: "google" };
+      // Same as DeepL: an answered, unchanged result ends the chain.
+      return { text, provider: "google" };
     } catch (err) {
       console.warn("[translate] Google pair failed; trying next", from, to);
       console.warn(err instanceof Error ? err.message : "translate error");
@@ -304,6 +312,13 @@ export async function translateCaption(
   }
   if (source.length > MAX_TEXT) {
     throw Object.assign(new Error("Text is too long"), { status: 400 });
+  }
+
+  if (hasNothingToTranslate(source)) {
+    const from = hintedFrom;
+    const out = emptyLocalized(source, from);
+    for (const lang of targets) out[lang] = source;
+    return { provider, from, text: out };
   }
 
   const marked = neutralLang(source);

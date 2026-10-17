@@ -1,6 +1,7 @@
 import { isOfflineMeeting } from "../offline-mode";
 import { isLang, type Lang } from "../types";
 import { stripForeignEchoes } from "./panes";
+import { postTranslateWithRetry, reportTranslateStatus } from "./request";
 import type { TranslateAllOptions, Translator } from "./types";
 
 type TranslateResponse = {
@@ -55,11 +56,9 @@ async function postTranslate(
   };
   if (options?.trustHint) payload.trustHint = true;
   if (isOfflineMeeting()) payload.provider = "mock";
-  const res = await fetch("/api/translate", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error(`Translate HTTP ${res.status}`);
-  return (await res.json()) as TranslateResponse;
+  // 5 s cap per try; one backoff retry for a sleeping server. A final failure
+  // throws, so withFallback still runs MinT then mock.
+  return (await postTranslateWithRetry("/api/translate", payload, {
+    onStatus: reportTranslateStatus,
+  })) as TranslateResponse;
 }

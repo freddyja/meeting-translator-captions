@@ -2,7 +2,7 @@ export type Lang = "en" | "es" | "pt";
 export type Role = "phone" | "tv" | "guest";
 export type PhoneRole = "host" | "guest";
 export type Layout = "en" | "es" | "pt" | "en-es" | "en-pt" | "es-pt" | "en-es-pt";
-export type ConnStatus = "connecting" | "live" | "offline";
+export type ConnStatus = "connecting" | "live" | "offline" | "waking";
 export type FloorState = {
   holderId: string | null;
   holderName: string | null;
@@ -170,6 +170,22 @@ export function someoneElseSpeaking(floor: FloorState | null | undefined): strin
   const name = floor?.holderName?.trim();
   if (!name) return "Someone else is speaking";
   return `Someone else is speaking · ${name}`;
+}
+
+export const RECONNECTING = "Reconnecting\u2026";
+
+/**
+ * Why this phone cannot take the floor right now. While the socket is down the
+ * floor snapshot is stale, so say we are reconnecting instead of blaming a speaker.
+ */
+export function floorBusyCopy(status: ConnStatus, floor: FloorState | null | undefined): string {
+  if (status !== "live") return RECONNECTING;
+  return someoneElseSpeaking(floor);
+}
+
+/** A stored floor/reconnect notice that should clear once we hold the floor again. */
+export function isFloorNotice(message: string): boolean {
+  return message.startsWith("Someone else is speaking") || message === RECONNECTING;
 }
 
 export function speechLocale(lang: Lang): string {
