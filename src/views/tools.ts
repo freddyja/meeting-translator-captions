@@ -11,6 +11,7 @@ import { createTalkTranscript } from "../talk-utterances";
 import { createWebSpeechProvider, isNonFatalSpeechNote } from "../stt/web-speech";
 import { createTranslator, translateAll } from "../translate";
 import { LANG_LABEL, LANG_SHORT, LANGS, isLang, speechLocale, type Lang } from "../types";
+import { trackSpeech } from "../update/activity";
 
 /**
  * Standalone, no-room tools reached from the front screen's More tools.
@@ -163,7 +164,7 @@ function mountWriteTool(root: HTMLElement): () => void {
 
 function mountTalkTool(root: HTMLElement): () => void {
   const translator = createTranslator();
-  const speech = createWebSpeechProvider();
+  const speech = trackSpeech(createWebSpeechProvider());
   let langA: Lang = readSpokenLang();
   let langB: Lang = langA === "en" ? "es" : "en";
   let turns: HandsFreeTurns | null = null;

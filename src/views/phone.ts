@@ -55,6 +55,7 @@ import {
   type PeerCounts,
   type RoomState,
 } from "../types";
+import { trackSpeech } from "../update/activity";
 
 const HOST_NAME = "Host";
 
@@ -68,7 +69,7 @@ const micIcon = `
 
 export function mountPhone(root: HTMLElement, room: string): () => void {
   const translator = createTranslator();
-  const speech = createWebSpeechProvider();
+  const speech = trackSpeech(createWebSpeechProvider());
   let state = { ...emptyState(room), sourceLang: readSpokenLang() };
   let peers: PeerCounts = { phones: 1, tvs: 0, guests: 0 };
   let connStatus: ConnStatus = "connecting";

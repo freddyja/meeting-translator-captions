@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,8 +36,10 @@ function send(res: ServerResponse, status: number, body: string, type: string, e
   res.end(body);
 }
 
-function cacheControl(filePath: string): string {
+export function cacheControl(filePath: string): string {
   const base = path.basename(filePath);
+  // version.json is the update probe: never let any cache answer it.
+  if (base === "version.json") return "no-cache, no-store, must-revalidate";
   if (base === "index.html" || base === "sw.js" || base.endsWith(".webmanifest")) {
     return "no-cache";
   }
@@ -89,6 +91,17 @@ export function createCaptionServer() {
 
     if (await handleApi(req, res)) return;
 
+    if (pathname === "/version.json") {
+      // Never fall through to the SPA shell: the client must get JSON or a 404.
+      try {
+        const body = await readFile(path.join(DIST, "version.json"), "utf8");
+        send(res, 200, body, MIME[".json"], { "cache-control": cacheControl("version.json") });
+      } catch {
+        send(res, 404, JSON.stringify({ error: "no build" }), MIME[".json"], { "cache-control": "no-store" });
+      }
+      return;
+    }
+
     if (req.method !== "GET" && req.method !== "HEAD") {
       send(res, 405, "Method not allowed", "text/plain; charset=utf-8");
       return;
@@ -107,6 +120,7 @@ export function createCaptionServer() {
           res.writeHead(200, {
             "content-type": MIME[path.extname(filePath)] ?? "application/octet-stream",
             "cache-control": cacheControl(filePath),
+            "x-content-type-options": "nosniff",
           });
           res.end();
           return;
