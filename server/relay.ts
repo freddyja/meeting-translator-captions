@@ -16,6 +16,8 @@ type Client = {
   room: string;
   role: Role;
   name: string;
+  /** Secret only this client sees. Lets its next socket retire this one. */
+  resumeToken: string;
 };
 
 type RoomState = Record<string, unknown>;
@@ -27,18 +29,29 @@ type Room = {
 };
 
 type Inbound =
-  | { type: "join"; room: string; role?: string; name?: string }
+  | { type: "join"; room: string; role?: string; name?: string; resume?: string; reclaim?: boolean }
   | { type: "push"; state: unknown }
-  | { type: "floor"; action?: string; name?: string };
+  | { type: "floor"; action?: string; name?: string; requestId?: unknown }
+  | { type: "ping"; t?: unknown };
 
 const LAYOUTS = new Set(["en", "es", "pt", "en-es", "en-pt", "es-pt", "en-es-pt"]);
 const LANGS = new Set(["en", "es", "pt"]);
+
+/** Server ping cadence. Render and most proxies drop idle sockets after ~60 s. */
+export const HEARTBEAT_MS = 25_000;
 
 export type CaptionRelay = {
   roomCount(): number;
 };
 
-export function attachCaptionRelay(httpServer: Server | null): CaptionRelay {
+export type CaptionRelayOptions = {
+  /** Ping every socket this often; terminate one that missed the previous pong. */
+  heartbeatMs?: number;
+};
+
+type LiveSocket = WebSocket & { isAlive?: boolean };
+
+export function attachCaptionRelay(httpServer: Server | null, options: CaptionRelayOptions = {}): CaptionRelay {
   if (!httpServer) return { roomCount: () => 0 };
 
   const flagged = httpServer as Server & { __mtRelay?: CaptionRelay };
@@ -49,6 +62,27 @@ export function attachCaptionRelay(httpServer: Server | null): CaptionRelay {
   const api: CaptionRelay = { roomCount: () => rooms.size };
   flagged.__mtRelay = api;
 
+  const heartbeatMs = options.heartbeatMs ?? HEARTBEAT_MS;
+  const heartbeat = setInterval(() => {
+    for (const raw of wss.clients) {
+      const ws = raw as LiveSocket;
+      if (ws.isAlive === false) {
+        // Missed a whole interval: half-open phone socket. leave() runs on close.
+        ws.terminate();
+        continue;
+      }
+      ws.isAlive = false;
+      try {
+        ws.ping();
+      } catch {
+        ws.terminate();
+      }
+    }
+  }, heartbeatMs);
+  heartbeat.unref?.();
+  httpServer.on("close", () => clearInterval(heartbeat));
+  wss.on("close", () => clearInterval(heartbeat));
+
   httpServer.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => {
     const url = req.url ?? "";
     if (!url.startsWith("/caption-ws")) return;
@@ -57,14 +91,27 @@ export function attachCaptionRelay(httpServer: Server | null): CaptionRelay {
     });
   });
 
-  wss.on("connection", (ws) => {
+  wss.on("connection", (socket) => {
+    const ws = socket as LiveSocket;
     let client: Client | null = null;
+    ws.isAlive = true;
+    ws.on("pong", () => {
+      ws.isAlive = true;
+    });
 
     ws.on("message", (raw) => {
+      ws.isAlive = true;
       let msg: Inbound;
       try {
         msg = JSON.parse(String(raw)) as Inbound;
       } catch {
+        return;
+      }
+
+      // App-level heartbeat. Browsers cannot see protocol pings, so the
+      // client sends this on visibilitychange / online to prove the socket.
+      if (msg.type === "ping") {
+        send(ws, { type: "pong", t: typeof msg.t === "number" ? msg.t : undefined });
         return;
       }
 
@@ -87,19 +134,26 @@ export function attachCaptionRelay(httpServer: Server | null): CaptionRelay {
           room,
           role,
           name: sanitizeName(msg.name, role === "phone" ? "Host" : "Guest"),
+          resumeToken: randomUUID(),
         };
+        const floorChanged = retireStale(bucket, client, msg.resume, msg.reclaim === true);
         bucket.clients.add(client);
         const counts = peerCounts(bucket);
         send(ws, {
           type: "joined",
           room,
           peerId: client.id,
+          resumeToken: client.resumeToken,
           role,
           floor: snapshotFloor(bucket.floor),
           ...counts,
         });
         if (bucket.state) {
           send(ws, { type: "state", state: withFloor(bucket.state, bucket.floor, client.room) });
+        }
+        if (floorChanged) {
+          broadcastFloor(bucket);
+          broadcastState(bucket, ws);
         }
         broadcastPeers(bucket);
         return;
@@ -111,7 +165,7 @@ export function attachCaptionRelay(httpServer: Server | null): CaptionRelay {
 
       if (msg.type === "floor") {
         if (typeof msg.name === "string") client.name = sanitizeName(msg.name, client.name);
-        handleFloor(bucket, client, parseFloorAction(msg.action));
+        handleFloor(bucket, client, parseFloorAction(msg.action), parseRequestId(msg.requestId));
         return;
       }
 
@@ -125,7 +179,8 @@ export function attachCaptionRelay(httpServer: Server | null): CaptionRelay {
     function leave() {
       if (!client) return;
       const bucket = rooms.get(client.room);
-      if (bucket) {
+      // A resumed socket already moved this client out of the room.
+      if (bucket && bucket.clients.has(client)) {
         const leaving = client;
         bucket.clients.delete(leaving);
         if (bucket.floor.holderId === leaving.id) {
@@ -150,9 +205,44 @@ export function attachCaptionRelay(httpServer: Server | null): CaptionRelay {
   return api;
 }
 
-function handleFloor(bucket: Room, client: Client, action: "claim" | "release" | "force" | ""): void {
+/**
+ * A reconnecting client names its previous socket by resume token. Retire that
+ * socket now instead of waiting for its TCP timeout, and either hand its floor
+ * to the new socket (`reclaim`) or free it. Returns true when the floor moved.
+ */
+function retireStale(bucket: Room, next: Client, token: unknown, reclaim: boolean): boolean {
+  if (typeof token !== "string" || !token) return false;
+  let stale: Client | null = null;
+  for (const peer of bucket.clients) {
+    if (peer.resumeToken === token) {
+      stale = peer;
+      break;
+    }
+  }
+  if (!stale || stale.role !== next.role) return false;
+  bucket.clients.delete(stale);
+  try {
+    stale.ws.terminate();
+  } catch {
+    /* already gone */
+  }
+  if (bucket.floor.holderId !== stale.id) return false;
+  bucket.floor = reclaim ? { holderId: next.id, holderName: next.name } : emptyFloor();
+  if (!reclaim) patchListening(bucket, false);
+  rememberFloor(bucket);
+  return true;
+}
+
+function handleFloor(
+  bucket: Room,
+  client: Client,
+  action: "claim" | "release" | "force" | "",
+  requestId?: number,
+): void {
+  const reply = (ok: boolean, reason?: string) =>
+    sendFloorResult(client, ok, reason, bucket.floor, requestId, action || undefined);
   if (!action) {
-    sendFloorResult(client, false, "denied", bucket.floor);
+    reply(false, "denied");
     return;
   }
 
@@ -161,24 +251,24 @@ function handleFloor(bucket: Room, client: Client, action: "claim" | "release" |
       bucket.floor = emptyFloor();
       patchListening(bucket, false);
       rememberFloor(bucket);
-      sendFloorResult(client, true, undefined, bucket.floor);
+      reply(true);
       broadcastFloor(bucket);
       if (bucket.state) broadcastState(bucket, client.ws);
       return;
     }
-    sendFloorResult(client, false, "denied", bucket.floor);
+    reply(false, "denied");
     return;
   }
 
   if (action === "force") {
     if (client.role !== "phone") {
-      sendFloorResult(client, false, "denied", bucket.floor);
+      reply(false, "denied");
       return;
     }
     bucket.floor = { holderId: client.id, holderName: client.name };
     patchListening(bucket, false);
     rememberFloor(bucket);
-    sendFloorResult(client, true, undefined, bucket.floor);
+    reply(true);
     broadcastFloor(bucket);
     if (bucket.state) broadcastState(bucket, client.ws);
     return;
@@ -188,12 +278,12 @@ function handleFloor(bucket: Room, client: Client, action: "claim" | "release" |
     if (!bucket.floor.holderId || bucket.floor.holderId === client.id) {
       bucket.floor = { holderId: client.id, holderName: client.name };
       rememberFloor(bucket);
-      sendFloorResult(client, true, undefined, bucket.floor);
+      reply(true);
       broadcastFloor(bucket);
       if (bucket.state) broadcastState(bucket, client.ws);
       return;
     }
-    sendFloorResult(client, false, "busy", bucket.floor);
+    reply(false, "busy");
   }
 }
 
@@ -204,6 +294,7 @@ function applyPush(bucket: Room, client: Client, raw: unknown): void {
 
   const isHost = client.role === "phone";
   const isGuest = client.role === "guest";
+  const holderBefore = bucket.floor.holderId;
   const wantsMic = incoming.listening === true;
   const dropsMic = incoming.listening === false;
 
@@ -273,7 +364,9 @@ function applyPush(bucket: Room, client: Client, raw: unknown): void {
       peer.ws.send(payload);
     }
   }
-  if (dropsMic) broadcastFloor(bucket);
+  // A listening:true push that took a free floor (e.g. a reconnect that flushed
+  // before its claim landed) must tell every peer, the sender included.
+  if (bucket.floor.holderId !== holderBefore) broadcastFloor(bucket);
 }
 
 function applyHostMeta(bucket: Room, client: Client, incoming: RoomState): void {
@@ -390,13 +483,26 @@ function send(ws: WebSocket, payload: unknown): void {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload));
 }
 
-function sendFloorResult(client: Client, ok: boolean, reason: string | undefined, floor: Floor): void {
+function sendFloorResult(
+  client: Client,
+  ok: boolean,
+  reason: string | undefined,
+  floor: Floor,
+  requestId?: number,
+  action?: string,
+): void {
   send(client.ws, {
     type: "floor",
     ok,
     reason,
+    action,
+    requestId,
     floor: snapshotFloor(floor),
   });
+}
+
+function parseRequestId(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : undefined;
 }
 
 function peerCounts(bucket: Room): { phones: number; tvs: number; guests: number } {

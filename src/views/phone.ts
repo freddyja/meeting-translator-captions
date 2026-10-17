@@ -1,5 +1,13 @@
 import { brandBlock, creditFooter } from "../brand";
-import { appendFinalLine, applyFinalLine, finalizedLines, previewCaption } from "../caption-history";
+import {
+  appendFinalLine,
+  applyFinalLine,
+  finalizedLines,
+  previewCaption,
+  provisionalLine,
+  revisionOfLast,
+  settleProvisional,
+} from "../caption-history";
 import { escapeHtml } from "../dom";
 import { bindUiLang, displayCopy, t, uiLangSwitcherHtml } from "../i18n";
 import { bindLocalSetup, localSetupInnerHtml } from "../local-setup";
@@ -10,14 +18,17 @@ import { goto, joinUrl, tvUrl } from "../router";
 import { createWebSpeechProvider, isNonFatalSpeechNote, isSpeechFallbackMessage } from "../stt/web-speech";
 import { speechSourceLang } from "../speech-caption";
 import { readSpokenLang, writeSpokenLang } from "../spoken-pref";
-import { createTranslator, translateAll } from "../translate";
+import { createTranslator, detectLang, translateAll } from "../translate";
+import { subscribeTranslateStatus, translateStatus } from "../translate/request";
 import { spokenKey } from "../translate/panes";
 import { paintCaptionBoard } from "./caption-board";
 import {
   emptyFloor,
   emptyState,
+  floorBusyCopy,
   floorHeldByOther,
   isFloorHolder,
+  isFloorNotice,
   isLang,
   keepsLocalCaptions,
   lostFloor,
@@ -26,6 +37,7 @@ import {
   LANG_SHORT,
   LANGS,
   LAYOUTS,
+  RECONNECTING,
   captionSpeakerName,
   someoneElseSpeaking,
   speechLocale,
@@ -69,6 +81,8 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
   let pendingSpeech: { text: string; lang: Lang } | null = null;
   let peerId: string | null = null;
   let floor: FloorState = emptyFloor();
+  /** Set by a fatal speech error; checked after an in-flight floor claim. */
+  let speechFailed = false;
 
   const push = () => conn?.push(state);
 
@@ -294,18 +308,24 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
 
   function renderDynamic() {
     els.room.textContent = state.room;
-    const blocked = floorHeldByOther(floor, peerId);
+    const live = connStatus === "live";
+    const heldByOther = floorHeldByOther(floor, peerId);
+    // Offline, the floor snapshot is stale: say Reconnecting, not "someone else".
+    const blocked = live && heldByOther;
     const holding = isFloorHolder(floor, peerId);
+    const downNote = connStatus === "waking" ? t("wakingServer") : t("reconnecting");
     const tvNote = peers.tvs > 0 ? t("tvConnected", { n: peers.tvs }) : t("waitingForTv");
     const guestNote = peers.guests > 0 ? t("onPhonesSuffix", { n: peers.guests }) : "";
-    const connNote = connStatus === "live" ? `${tvNote}${guestNote}` : connStatus === "connecting" ? t("connecting") : t("reconnecting");
+    const connNote = live ? `${tvNote}${guestNote}` : connStatus === "connecting" ? t("connecting") : downNote;
     els.status.textContent = state.listening ? t("listeningDot", { note: connNote }) : connNote;
     els.dot.className = `dot ${state.listening ? "listening" : connStatus === "live" ? "live" : "offline"}`;
     els.mic.classList.toggle("hot", holding && state.listening);
     els.mic.disabled = blocked;
     els.mic.setAttribute("aria-pressed", String(holding && state.listening));
     els.micLabel.textContent = holding && state.listening ? t("stop") : blocked ? t("wait") : t("start");
-    if (blocked) {
+    if (heldByOther && !live) {
+      els.floor.textContent = downNote;
+    } else if (blocked) {
       els.floor.textContent = displayCopy(someoneElseSpeaking(floor));
     } else if (holding && state.listening) {
       els.floor.textContent = t("youreSpeaking");
@@ -315,7 +335,8 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
       els.floor.textContent = "";
     }
     reclaimBtn.hidden = !blocked;
-    els.error.textContent = displayCopy(error);
+    const translateNote = translateStatus() === "waking" ? t("translateWaking") : "";
+    els.error.textContent = [displayCopy(error), translateNote].filter(Boolean).join(" ");
     const lastFinal = finalizedLines(state.lines).at(-1);
     const spoken = previewCaption(lastFinal, state.sourceLang);
     if (liveInterim && holding) {
@@ -328,7 +349,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
       els.preview.textContent = t("captionsWillAppear");
     }
     els.preview.classList.toggle("interim", Boolean(liveInterim && holding) || (holding && state.listening && !lastFinal));
-    const live =
+    const liveCaption =
       liveInterim && holding
         ? { text: liveInterim, sourceLang: state.sourceLang, draftLang: liveDraftLang, speaker: hostSpeaker() }
         : null;
@@ -338,7 +359,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
       listening: state.listening,
       floor,
     };
-    paintCaptionBoard(els.phoneBoard, boardState, live);
+    paintCaptionBoard(els.phoneBoard, boardState, liveCaption);
 
     screen.classList.toggle("is-smart-view", smartViewMode);
     smartLayer.hidden = !smartViewMode;
@@ -350,14 +371,16 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     els.smartMicLabel.textContent = holding && state.listening ? t("stop") : blocked ? t("wait") : t("start");
     els.svRoom.textContent = state.room;
     const speaker =
-      blocked && floor.holderName
+      heldByOther && !live
+        ? downNote
+        : blocked && floor.holderName
         ? displayCopy(someoneElseSpeaking(floor))
         : state.listening
           ? t("listeningSmart")
           : t("smartViewStatus");
     els.svStatus.textContent = speaker;
     els.svDot.className = `dot ${state.listening ? "listening" : connStatus === "live" ? "live" : "offline"}`;
-    if (smartViewMode) paintCaptionBoard(svBoard, boardState, live);
+    if (smartViewMode) paintCaptionBoard(svBoard, boardState, liveCaption);
 
     for (const btn of root.querySelectorAll<HTMLButtonElement>(
       "[data-source] [data-lang], [data-smart-source] [data-lang]",
@@ -390,25 +413,37 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     const spoken = text.trim();
     if (!spoken) return;
     liveInterim = "";
-    renderDynamic();
     const epoch = publishEpoch;
     const hint = speechLang ?? state.sourceLang;
+    const paneLang = detectLang(spoken, hint);
+    const history = finalizedLines(state.lines);
+    const last = history.at(-1);
+    // Unchanged words (a repeated final): nothing to show, nothing to translate.
+    if (coalesce && revisionOfLast(last?.text[paneLang], spoken) === "duplicate") {
+      renderDynamic();
+      return;
+    }
+    // Show the original at once on every screen; translations fill in after.
+    const speaker = hostSpeaker();
+    const provisional = provisionalLine(spoken, paneLang, speaker, coalesce ? last : undefined);
+    const shown = coalesce
+      ? applyFinalLine(state.lines, provisional, paneLang)
+      : appendFinalLine(state.lines, provisional);
+    const lineId = shown.at(-1)?.id ?? provisional.id;
+    setState({ ...state, lines: shown });
     const translated = await translateAll(translator, spoken, hint);
     const from = spokenKey(spoken, translated, hint);
     if (epoch !== publishEpoch) return;
     lastCaptionWasMock = translator.id === "mock";
     paintLimitedBanner();
     const line: CaptionLine = {
-      id: crypto.randomUUID(),
+      id: lineId,
       isFinal: true,
       text: translated,
-      speaker: hostSpeaker(),
-      at: Date.now(),
+      speaker,
+      at: provisional.at,
     };
-    const lines = coalesce
-      ? applyFinalLine(state.lines, line, from)
-      : appendFinalLine(state.lines, line);
-    setState({ ...state, lines });
+    setState({ ...state, lines: settleProvisional(state.lines, line, from, coalesce) });
   }
 
   let publishQueue: Promise<void> = Promise.resolve();
@@ -448,12 +483,13 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
       return;
     }
     if (floorHeldByOther(floor, peerId)) {
-      error = someoneElseSpeaking(floor);
+      error = floorBusyCopy(connStatus, floor);
       renderDynamic();
       return;
     }
     // Start on the click stack. iOS rejects recognition.start() after an await.
     // Prime es-ES / pt-BR on the reused recognizer before start().
+    speechFailed = false;
     speech.setLang(speechLocale(state.sourceLang), true);
     speech.start();
     void (async () => {
@@ -461,15 +497,17 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
       if (!ok) {
         speech.stop();
         pendingSpeech = null;
-        error = someoneElseSpeaking(floor);
+        error = floorBusyCopy(connStatus, floor);
         renderDynamic();
         return;
       }
-      if (isSpeechFallbackMessage(error) && !isNonFatalSpeechNote(error)) {
+      if (speechFailed) {
+        // The mic died while the claim was in flight. Give the floor back.
         speech.stop();
         releaseWake();
         typeForm.hidden = false;
         pendingSpeech = null;
+        void conn?.releaseFloor();
         setState({ ...state, listening: false });
         return;
       }
@@ -484,6 +522,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
   const onReclaim = () => {
     error = "";
     // start() in this tap. iOS rejects recognition.start() after an await.
+    speechFailed = false;
     speech.setLang(speechLocale(state.sourceLang), true);
     speech.start();
     void (async () => {
@@ -497,13 +536,14 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
       const ok = (await conn?.claimFloor(HOST_NAME)) ?? false;
       if (!ok) {
         speech.stop();
-        error = someoneElseSpeaking(floor);
+        error = floorBusyCopy(connStatus, floor);
         renderDynamic();
         return;
       }
-      if (isSpeechFallbackMessage(error) && !isNonFatalSpeechNote(error)) {
+      if (speechFailed) {
         speech.stop();
         typeForm.hidden = false;
+        void conn?.releaseFloor();
         setState({ ...state, listening: false });
         return;
       }
@@ -539,18 +579,16 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
       renderDynamic();
       return;
     }
-    if (isSpeechFallbackMessage(message)) {
-      speech.stop();
-      releaseWake();
-      typeForm.hidden = false;
-      liveInterim = "";
-      if (message.includes("Microphone blocked") || message.includes("no Web Speech")) {
-        void conn?.releaseFloor();
-      }
-      setState({ ...state, listening: false });
-      return;
-    }
-    renderDynamic();
+    // Every other error ends recognition (the provider already cleared
+    // wantListening). Never sit on the floor with a dead mic.
+    speechFailed = true;
+    speech.stop();
+    releaseWake();
+    if (isSpeechFallbackMessage(message)) typeForm.hidden = false;
+    liveInterim = "";
+    pendingSpeech = null;
+    if (isFloorHolder(floor, peerId)) void conn?.releaseFloor();
+    setState({ ...state, listening: false });
   };
 
   const onSource = (event: Event) => {
@@ -752,14 +790,14 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
       const text = input.value.trim();
       if (!text) return;
       if (floorHeldByOther(floor, peerId)) {
-        error = someoneElseSpeaking(floor);
+        error = floorBusyCopy(connStatus, floor);
         renderDynamic();
         return;
       }
       if (!isFloorHolder(floor, peerId)) {
         const ok = (await conn?.claimFloor(HOST_NAME)) ?? false;
         if (!ok) {
-          error = someoneElseSpeaking(floor);
+          error = floorBusyCopy(connStatus, floor);
           renderDynamic();
           return;
         }
@@ -818,7 +856,18 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     name: HOST_NAME,
     onJoined(info) {
       peerId = info.peerId;
-      floor = info.floor ?? floor;
+      const next = info.floor ?? floor;
+      // Reconnected after someone else took the floor while we were away.
+      if (state.listening && floorHeldByOther(next, info.peerId)) {
+        floor = next;
+        publishEpoch += 1;
+        pendingSpeech = null;
+        stopLocalMic();
+        error = someoneElseSpeaking(next);
+        setState({ ...state, listening: false }, false);
+        return;
+      }
+      floor = next;
       state = { ...state, floor };
       renderDynamic();
     },
@@ -833,7 +882,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
         setState({ ...state, listening: false }, false);
         return;
       }
-      if (isFloorHolder(next, peerId) && error.startsWith("Someone else is speaking")) error = "";
+      if (isFloorHolder(next, peerId) && isFloorNotice(error)) error = "";
       state = { ...state, floor: next };
       renderDynamic();
     },
@@ -869,9 +918,11 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     },
     onStatus(status) {
       connStatus = status;
+      if (status === "live" && error === RECONNECTING) error = "";
       renderDynamic();
     },
   });
+  const unsubTranslate = subscribeTranslateStatus(() => renderDynamic());
 
   const unbindLang = bindUiLang(root, () => {
     renderDynamic();
@@ -884,6 +935,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
     speech.stop();
     releaseWake();
     conn?.close();
+    unsubTranslate();
     window.clearTimeout(copyLabelTimer);
     window.clearTimeout(copyJoinTimer);
     for (const timer of Object.values(copyLangTimers)) window.clearTimeout(timer);

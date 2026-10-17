@@ -1,5 +1,12 @@
 import { brandBlock, creditFooter } from "../brand";
-import { appendFinalLine, applyFinalLine, finalizedLines } from "../caption-history";
+import {
+  appendFinalLine,
+  applyFinalLine,
+  finalizedLines,
+  provisionalLine,
+  revisionOfLast,
+  settleProvisional,
+} from "../caption-history";
 import { escapeHtml } from "../dom";
 import {
   bindUiLang,
@@ -14,17 +21,21 @@ import {
 import { connectRoom, type RoomConnection } from "../realtime/client";
 import { goto } from "../router";
 import { detectSpeechCapability } from "../stt/capability";
-import { createWebSpeechProvider, isNonFatalSpeechNote, isSpeechFallbackMessage } from "../stt/web-speech";
+import { createWebSpeechProvider, isNonFatalSpeechNote } from "../stt/web-speech";
 import { speechSourceLang } from "../speech-caption";
 import { readSpokenLang, writeSpokenLang } from "../spoken-pref";
-import { createTranslator, translateAll } from "../translate";
+import { createTranslator, detectLang, translateAll } from "../translate";
+import { subscribeTranslateStatus, translateStatus } from "../translate/request";
 import { spokenKey } from "../translate/panes";
 import { paintCaptionBoard } from "./caption-board";
 import {
   emptyFloor,
   emptyState,
+  floorBusyCopy,
   floorHeldByOther,
   isFloorHolder,
+  isFloorNotice,
+  RECONNECTING,
   isLang,
   keepsLocalCaptions,
   lostFloor,
@@ -79,6 +90,8 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   let lastCaptionWasMock = false;
   let typeFallback = stt.preferType;
   let pendingSpeech: { text: string; lang: Lang } | null = null;
+  /** Set by a fatal speech error; checked after an in-flight floor claim. */
+  let speechFailed = false;
 
   const push = () =>
     conn?.push({
@@ -206,13 +219,17 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
 
   function renderDynamic() {
     const holding = isFloorHolder(floor, peerId);
-    const blocked = floorHeldByOther(floor, peerId);
+    const live = connStatus === "live";
+    const heldByOther = floorHeldByOther(floor, peerId);
+    // Offline, the floor snapshot is stale: say Reconnecting, not "someone else".
+    const blocked = live && heldByOther;
+    const downNote = connStatus === "waking" ? t("wakingServer") : t("reconnecting");
     const showMic = stt.canListen;
     els.room.textContent = state.room;
     const guestNote = peers.guests > 0 ? t("onPhones", { n: peers.guests }) : t("joined");
     const tvNote = peers.tvs > 0 ? t("tvConnectedSuffix", { n: peers.tvs }) : "";
     const connNote =
-      connStatus === "live" ? `${guestNote}${tvNote}` : connStatus === "connecting" ? t("connecting") : t("reconnecting");
+      live ? `${guestNote}${tvNote}` : connStatus === "connecting" ? t("connecting") : downNote;
     els.status.textContent = holding && state.listening ? t("listeningDot", { note: connNote }) : connNote;
     els.dot.className = `dot ${holding && state.listening ? "listening" : connStatus === "live" ? "live" : "offline"}`;
     els.mic.hidden = !showMic;
@@ -220,7 +237,9 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     els.mic.disabled = blocked;
     els.mic.setAttribute("aria-pressed", String(holding && state.listening));
     els.micLabel.textContent = holding ? t("stop") : blocked ? t("wait") : t("start");
-    if (blocked) {
+    if (heldByOther && !live) {
+      els.floor.textContent = downNote;
+    } else if (blocked) {
       els.floor.textContent = displayCopy(someoneElseSpeaking(floor));
     } else if (holding && state.listening) {
       els.floor.textContent = typeFallback ? t("floorYouType") : t("floorYouSpeaking");
@@ -234,7 +253,8 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     els.floor.hidden = false;
     sttHint.textContent = sttHintText();
     const extra = lastCaptionWasMock ? t("offlineLimited") : "";
-    els.error.textContent = [displayCopy(error), extra].filter(Boolean).join(" ");
+    const translateNote = translateStatus() === "waking" ? t("translateWaking") : "";
+    els.error.textContent = [displayCopy(error), translateNote, extra].filter(Boolean).join(" ");
     typeForm.classList.toggle("is-primary", typeFallback || !showMic);
     typeInput.disabled = blocked;
     typeSend.disabled = blocked;
@@ -297,13 +317,14 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
       return;
     }
     if (floorHeldByOther(floor, peerId)) {
-      error = someoneElseSpeaking(floor);
+      error = floorBusyCopy(connStatus, floor);
       renderDynamic();
       return;
     }
     // iOS Safari only runs SpeechRecognition.start() on the click stack.
     // An await (floor claim) before start() makes the mic a silent no-op.
     // Prime es-ES / pt-BR on the one iOS recognizer before that start().
+    speechFailed = false;
     speech.setLang(speechLocale(sourceLang), true);
     speech.start();
     void (async () => {
@@ -311,14 +332,17 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
       if (!ok) {
         speech.stop();
         pendingSpeech = null;
-        error = someoneElseSpeaking(floor);
+        error = floorBusyCopy(connStatus, floor);
         renderDynamic();
         return;
       }
-      if (micFailed(error) && !isNonFatalSpeechNote(error)) {
+      if (speechFailed) {
+        // The mic died while the claim was in flight. Give the floor back;
+        // Type + Send claims it again on send.
         stopLocalMic();
         typeFallback = true;
         typeInput.focus();
+        void conn?.releaseFloor();
         state = { ...state, listening: false, sourceLang, floor };
         renderDynamic();
         return;
@@ -355,14 +379,14 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     if (!spoken) return;
     const speaker = currentGuestName();
     if (floorHeldByOther(floor, peerId)) {
-      error = someoneElseSpeaking(floor);
+      error = floorBusyCopy(connStatus, floor);
       renderDynamic();
       return;
     }
     if (!isFloorHolder(floor, peerId)) {
       const ok = (await conn?.claimFloor(speaker)) ?? false;
       if (!ok || !isFloorHolder(floor, peerId)) {
-        error = someoneElseSpeaking(floor);
+        error = floorBusyCopy(connStatus, floor);
         renderDynamic();
         return;
       }
@@ -371,23 +395,36 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     }
     error = "";
     liveInterim = "";
-    renderDynamic();
     const epoch = publishEpoch;
     const hint = speechLang ?? sourceLang;
+    const paneLang = detectLang(spoken, hint);
+    const last = finalizedLines(state.lines).at(-1);
+    // Unchanged words (a repeated final): nothing to show, nothing to translate.
+    if (coalesce && revisionOfLast(last?.text[paneLang], spoken) === "duplicate") {
+      renderDynamic();
+      return;
+    }
+    // Show the original at once on every screen; translations fill in after.
+    const provisional = provisionalLine(spoken, paneLang, speaker, coalesce ? last : undefined);
+    const shown = coalesce
+      ? applyFinalLine(state.lines, provisional, paneLang)
+      : appendFinalLine(state.lines, provisional);
+    const lineId = shown.at(-1)?.id ?? provisional.id;
+    state = { ...state, lines: shown, sourceLang, floor, listening: true };
+    renderDynamic();
+    push();
     const translated = await translateAll(translator, spoken, hint);
     const from = spokenKey(spoken, translated, hint);
     if (epoch !== publishEpoch) return;
     lastCaptionWasMock = translator.id === "mock";
     const line: CaptionLine = {
-      id: crypto.randomUUID(),
+      id: lineId,
       isFinal: true,
       text: translated,
       speaker,
-      at: Date.now(),
+      at: provisional.at,
     };
-    const lines = coalesce
-      ? applyFinalLine(state.lines, line, from)
-      : appendFinalLine(state.lines, line);
+    const lines = settleProvisional(state.lines, line, from, coalesce);
     state = { ...state, lines, sourceLang, floor, listening: true };
     renderDynamic();
     push();
@@ -411,7 +448,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
       } else if (!floorHeldByOther(floor, peerId)) {
         pendingSpeech = { text: result.text, lang: heard };
       } else {
-        error = someoneElseSpeaking(floor);
+        error = floorBusyCopy(connStatus, floor);
         renderDynamic();
       }
       return;
@@ -432,8 +469,13 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
       renderDynamic();
       return;
     }
+    // Fatal: recognition is over. Release the floor so others can speak;
+    // Type + Send claims it again when this guest sends.
+    speechFailed = true;
     pendingSpeech = null;
+    const held = isFloorHolder(floor, peerId);
     stopLocalMic();
+    if (held) void conn?.releaseFloor();
     typeInput.focus();
     renderDynamic();
   };
@@ -482,14 +524,14 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
       if (!text) return;
       const speaker = currentGuestName();
       if (floorHeldByOther(floor, peerId)) {
-        error = someoneElseSpeaking(floor);
+        error = floorBusyCopy(connStatus, floor);
         renderDynamic();
         return;
       }
       if (!isFloorHolder(floor, peerId)) {
         const ok = (await conn?.claimFloor(speaker)) ?? false;
         if (!ok) {
-          error = someoneElseSpeaking(floor);
+          error = floorBusyCopy(connStatus, floor);
           renderDynamic();
           return;
         }
@@ -578,7 +620,17 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
       name: displayName,
       onJoined(info) {
         peerId = info.peerId;
-        floor = info.floor ?? floor;
+        const next = info.floor ?? floor;
+        // Reconnected after someone else took the floor while we were away.
+        if (state.listening && floorHeldByOther(next, info.peerId)) {
+          publishEpoch += 1;
+          pendingSpeech = null;
+          floor = next;
+          stopLocalMic();
+          error = someoneElseSpeaking(next);
+        } else {
+          floor = next;
+        }
         renderDynamic();
       },
       onFloor(next) {
@@ -589,7 +641,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
           pendingSpeech = null;
           stopLocalMic();
           error = someoneElseSpeaking(next);
-        } else if (isFloorHolder(next, peerId) && error.startsWith("Someone else is speaking")) {
+        } else if (isFloorHolder(next, peerId) && isFloorNotice(error)) {
           error = "";
         }
         state = { ...state, floor: next };
@@ -614,6 +666,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
       },
       onStatus(status) {
         connStatus = status;
+        if (status === "live" && error === RECONNECTING) error = "";
         renderDynamic();
       },
     });
@@ -636,10 +689,15 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   paintWatch();
   paintSetup();
 
+  const unsubTranslate = subscribeTranslateStatus(() => {
+    if (entered) renderDynamic();
+  });
+
   return () => {
     speech.stop();
     releaseWake();
     conn?.close();
+    unsubTranslate();
     landscapeMq.removeEventListener("change", onOrientationChange);
     window.removeEventListener("resize", onOrientationChange);
     window.removeEventListener("orientationchange", onOrientationChange);
@@ -655,10 +713,6 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     setupContinue.removeEventListener("click", enterRoom);
     unbindLang();
   };
-}
-
-function micFailed(message: string): boolean {
-  return isSpeechFallbackMessage(message);
 }
 
 function readGuestName(): string {

@@ -371,9 +371,47 @@ button, input, select, textarea {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   gap: 0.55rem;
-  overflow: hidden;
+  min-height: 0;
+  /* Scrollable so a reader can look back. The first child's auto margin keeps
+     captions bottom-aligned (justify-content:flex-end would hide the top). */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.lines::-webkit-scrollbar {
+  display: none;
+}
+
+.lines > :first-child {
+  margin-top: auto;
+}
+
+.new-captions-pill {
+  /* Sticky so it stays on screen when the pane runs past the fold. */
+  position: sticky;
+  bottom: 0.75rem;
+  align-self: center;
+  z-index: 2;
+  margin: -2.4rem 0 0;
+  padding: 0.4rem 0.9rem;
+  border: 2px solid var(--pane-border);
+  border-radius: 999px;
+  background: var(--pane-ink);
+  color: var(--pane-bg);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+.new-captions-pill[hidden] {
+  display: none;
 }
 
 .line {
@@ -788,7 +826,8 @@ button, input, select, textarea {
 
 .join-screen .lines {
   min-height: 2rem;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .join-screen .tv-board[data-count="2"], .join-screen .tv-board[data-count="3"] {

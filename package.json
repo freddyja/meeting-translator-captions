@@ -11,7 +11,9 @@
     "start": "node --experimental-strip-types server/index.ts",
     "verify:prod": "node --experimental-strip-types scripts/verify-route.mjs && node scripts/verify-production.mjs",
     "verify:translate": "node --experimental-strip-types scripts/verify-translate.mjs",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "test": "node --experimental-strip-types --no-warnings --test tests/*.test.ts"
   },
   "engines": {
     "node": ">=22.6"

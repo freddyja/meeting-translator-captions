@@ -6,8 +6,10 @@ import { createLibreTranslator } from "./libretranslate";
 import { createMyMemoryTranslator } from "./mymemory";
 import { stripForeignEchoes, translateUntilSpoken } from "./panes";
 import { passthroughTranslator } from "./passthrough";
+import { hasNothingToTranslate } from "./request";
 import { createServerTranslator } from "./server";
 import { translateAll as runTranslateAll, type Translator } from "./types";
+import type { Lang } from "../types";
 
 export type { Translator } from "./types";
 export { detectLang } from "./detect";
@@ -31,6 +33,20 @@ function translatorForProvider(provider: string): Translator {
   return withFallback(createServerTranslator());
 }
 
+const RECENT_LIMIT = 50;
+/** The same words again (a repeated phrase, a coalesced final) reuse the last result. */
+const recent = new Map<string, Record<Lang, string>>();
+
+function remember(key: string, value: Record<Lang, string>): void {
+  recent.delete(key);
+  recent.set(key, { ...value });
+  while (recent.size > RECENT_LIMIT) {
+    const first = recent.keys().next().value;
+    if (first === undefined) break;
+    recent.delete(first);
+  }
+}
+
 function withOfflineMode(primary: Translator): Translator {
   const active = () => (isOfflineMeeting() ? mockTranslator : primary);
   return {
@@ -40,14 +56,23 @@ function withOfflineMode(primary: Translator): Translator {
     translate(text, from, to) {
       return active().translate(text, from, to);
     },
-    translateAll(text, from) {
+    async translateAll(text, from) {
+      // Unchanged text needs no network and no DeepL → MyMemory → MinT → mock chain.
+      if (hasNothingToTranslate(text)) return { en: text, es: text, pt: text };
       const engine = active();
       // Speech and Type+Send share this path. A mic-only hint that skipped
       // detection left Spanish ("mi casa es Roja") in the English pane.
       if (isOfflineMeeting() || engine.id === "mock") {
         return translateUntilSpoken((value, spoken) => runTranslateAll(engine, value, spoken), text, from);
       }
-      return runTranslateAll(engine, text, detectLang(text, from));
+      const spoken = detectLang(text, from);
+      const key = `${spoken}\u0000${text.trim()}`;
+      const hit = recent.get(key);
+      if (hit) return { ...hit };
+      const mapped = await runTranslateAll(engine, text, spoken);
+      // Remember only live-provider results; a mock fallback should be retried.
+      if (engine.id !== "mock") remember(key, mapped);
+      return mapped;
     },
   };
 }
