@@ -8,7 +8,7 @@ import {
   wasJustInstalled,
 } from "../install";
 import { generateRoomCode, isRoomCode, normalizeRoomCode } from "../room";
-import { goto } from "../router";
+import { goto, isToolView } from "../router";
 
 export function mountHome(root: HTMLElement): () => void {
   root.innerHTML = `
@@ -38,6 +38,14 @@ export function mountHome(root: HTMLElement): () => void {
           </aside>
         </div>
       </details>
+      <section class="more-tools" aria-labelledby="more-tools-title">
+        <h2 class="control-label" id="more-tools-title" data-i18n="moreTools"></h2>
+        <div class="tool-tiles">
+          <button class="tool-tile" data-tool-open="photo" type="button"><span class="tool-icon" aria-hidden="true">📷</span><strong data-i18n="toolPhoto"></strong><small data-i18n="toolPhotoDesc"></small></button>
+          <button class="tool-tile" data-tool-open="write" type="button"><span class="tool-icon" aria-hidden="true">✍️</span><strong data-i18n="toolWrite"></strong><small data-i18n="toolWriteDesc"></small></button>
+          <button class="tool-tile" data-tool-open="talk" type="button"><span class="tool-icon" aria-hidden="true">💬</span><strong data-i18n="toolTalk"></strong><small data-i18n="toolTalkDesc"></small></button>
+        </div>
+      </section>
       ${creditFooter()}
     </section>
   `;
@@ -111,6 +119,11 @@ export function mountHome(root: HTMLElement): () => void {
     }
     goto("join", room);
   };
+  const tiles = root.querySelector(".tool-tiles") as HTMLElement;
+  const onTool = (event: Event) => {
+    const view = (event.target as HTMLElement).closest<HTMLElement>("[data-tool-open]")?.dataset.toolOpen;
+    if (isToolView(view)) goto(view);
+  };
   const onInstall = () => {
     void promptInstall().then(paintInstall);
   };
@@ -120,6 +133,7 @@ export function mountHome(root: HTMLElement): () => void {
   form?.addEventListener("submit", onJoin);
   joinPhone?.addEventListener("click", onJoinPhone);
   installBtn.addEventListener("click", onInstall);
+  tiles.addEventListener("click", onTool);
   const unsubscribe = subscribeInstall(paintInstall);
   const unbindLang = bindUiLang(root, paintInstall);
   paintInstall();
@@ -130,6 +144,7 @@ export function mountHome(root: HTMLElement): () => void {
     form?.removeEventListener("submit", onJoin);
     joinPhone?.removeEventListener("click", onJoinPhone);
     installBtn.removeEventListener("click", onInstall);
+    tiles.removeEventListener("click", onTool);
     unsubscribe();
     unbindLang();
   };

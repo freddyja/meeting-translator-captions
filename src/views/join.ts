@@ -18,7 +18,7 @@ import {
   uiLangSwitcherHtml,
   watchChipsHtml,
 } from "../i18n";
-import { mountExtraInputs } from "../input/extra-inputs";
+import { mountMoreMenu } from "../input/more-menu";
 import { swapGuestLangs } from "../lang-swap";
 import { connectRoom, type RoomConnection } from "../realtime/client";
 import { goto } from "../router";
@@ -153,9 +153,8 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
             <p class="control-label" data-i18n="spokenLanguage"></p>
             <div class="chips" data-source></div>
           </div>
-          <button class="chip swap-langs" data-swap type="button" data-i18n-aria="swapAria"><span aria-hidden="true">⇄</span> <span data-i18n="swapLangs"></span></button>
           <div class="join-watch">
-            <p class="control-label" id="join-watch-label" data-i18n="watch"></p>
+            <p class="control-label lang-label-row"><span id="join-watch-label" data-i18n="watch"></span><button class="swap-icon" data-swap type="button" data-i18n-aria="swapAria"><span aria-hidden="true">⇄</span></button></p>
             <div class="chips" data-watch-box role="group" aria-labelledby="join-watch-label"></div>
           </div>
         </div>
@@ -170,7 +169,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
           <input name="caption" autocomplete="off" autocorrect="on" autocapitalize="sentences" enterkeyhint="send" />
           <button class="primary" type="submit" data-i18n="send"></button>
         </form>
-        <div class="extra-inputs" data-extra-inputs></div>
+        <div class="more-bar" data-more-bar></div>
         ${creditFooter()}
       </div>
     </section>
@@ -525,12 +524,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
 
   const onSwap = () => {
     const next = swapGuestLangs(sourceLang, watchLang);
-    if (!next) {
-      error = t("swapNeedsOne");
-      renderDynamic();
-      return;
-    }
-    if (error === t("swapNeedsOne")) error = "";
+    if (!next) return;
     sourceLang = next.spoken;
     watchLang = next.watch;
     liveInterim = "";
@@ -559,8 +553,16 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     goto("home");
   };
 
+  /** One-shot language from ⋯ More → Photo; cleared so the next typed caption uses Spoken. */
+  const takeLangHint = (): Lang | undefined => {
+    const hint = typeForm.dataset.langHint;
+    delete typeForm.dataset.langHint;
+    return isLang(hint) ? hint : undefined;
+  };
+
   const onType = (event: Event) => {
     event.preventDefault();
+    const langHint = takeLangHint();
     void (async () => {
       const text = typeInput.value.trim();
       if (!text) return;
@@ -581,7 +583,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
         push();
       }
       typeInput.value = "";
-      queuePublish(text, false);
+      queuePublish(text, false, langHint);
     })();
   };
 
@@ -727,8 +729,8 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   sourceBox.addEventListener("click", onSource);
   watchBox.addEventListener("click", onWatch);
   swapBtn.addEventListener("click", onSwap);
-  const unmountExtra = mountExtraInputs({
-    bar: root.querySelector("[data-extra-inputs]") as HTMLElement,
+  const unmountMore = mountMoreMenu({
+    bar: root.querySelector("[data-more-bar]") as HTMLElement,
     dialogHost: screenEl,
     form: typeForm,
     input: typeInput,
@@ -764,7 +766,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     sourceBox.removeEventListener("click", onSource);
     watchBox.removeEventListener("click", onWatch);
     swapBtn.removeEventListener("click", onSwap);
-    unmountExtra();
+    unmountMore();
     nameInput.removeEventListener("change", onName);
     typeForm.removeEventListener("submit", onType);
     setupSource.removeEventListener("click", onSetupSource);

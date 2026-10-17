@@ -1,11 +1,12 @@
 import { AUTH_REQUIRED_EVENT, checkAuth, consumeLinkToken, readToken } from "./auth";
 import { t } from "./i18n";
-import { readRoute } from "./router";
+import { isToolView, readRoute } from "./router";
 import { isRoomCode } from "./room";
 import { mountHome } from "./views/home";
 import { mountJoin } from "./views/join";
 import { mountPhone } from "./views/phone";
 import { mountPin } from "./views/pin";
+import { mountTool } from "./views/tools";
 import { mountTv } from "./views/tv";
 
 export function startApp(root: HTMLElement): void {
@@ -27,6 +28,10 @@ export function startApp(root: HTMLElement): void {
     }
     if (route.view === "tv" && isRoomCode(route.room)) {
       unmount = mountTv(root, route.room, route.lang);
+      return;
+    }
+    if (isToolView(route.view)) {
+      unmount = mountTool(root, route.view);
       return;
     }
     unmount = mountHome(root);

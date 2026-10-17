@@ -80,21 +80,26 @@ The phone calls `POST /api/translate` on the same host before it publishes a cap
 
 Portuguese targets use DeepL `PT-BR`. English targets use `EN-US`.
 
-## Swap, hands-free, Write, and Photo
+## More tools, ⋯ More, and ⇄
 
-- **⇄ Swap** (host and guest): one tap trades the Spoken language and the Watch language. It needs a single Watch language that differs from Spoken; with "EN | ES | PT" (or "all") there is nothing to trade, so the button is disabled. On iPhone the swap only changes `lang` on the first `webkitSpeechRecognition`, the same as tapping a Spoken chip.
-- **Hands-free · 2 people** (host): tap it, then tap Start once. The mic stays on. Web Speech has **no real language auto-detect**, since one recognizer listens in one locale at a time, so this mode uses turn-taking:
-  1. It listens in the current speaker's language, one of a pair: Spoken plus a different single Watch language, or else Spoken plus English (Spanish if Spoken is English).
-  2. Each finished phrase is filed under the language its words support. A word-marker detect step runs on the transcript, limited to the pair. If the words clearly belong to the other language, the mic switches to that language.
-  3. After about 1.6 seconds of quiet, the floor is **released** and the mic flips to the other language of the pair, ready for the other person. The next phrase claims the floor again.
-  4. The one-speaker floor still applies: while someone else holds it, this mic only listens and posts nothing.
-  - **Limits:** if the same person keeps talking after a pause, their next phrase is heard in the other locale and usually comes out garbled. The detect step can re-file clear text but cannot re-transcribe audio. Tap ⇄ or a Spoken chip to correct it. iPhone Safari's one-shot sessions add a short gap at each switch. Chrome on Android or desktop works best. Firefox has no Web Speech, so hands-free is not available there.
-- **✍️ Write**: draw on the pad with a finger, tap Recognize, then Use text. The text lands in the Type + Send box for review, and Send follows the normal floor rules.
-  - If the browser has the **Handwriting Recognition API** (`navigator.createHandwritingRecognizer`, today only Chromium on ChromeOS), the browser's own on-device model is used.
-  - Everywhere else, the drawing is read by the same free, on-device **tesseract.js** OCR used for photos. That works for neat, large block letters; cursive mostly fails.
-  - There is no free, key-less hosted handwriting API, so none is used and no key is needed.
-- **📷 Photo**: take or upload a photo and pick the text language (EN, ES, PT, or Auto, which loads all three). tesseract.js reads the text in the browser. You can edit it, and it is translated through the normal translator chain (DeepL → MyMemory → MinT → mock) into EN/ES/PT. **Post as caption** sends it through Type + Send, so the floor and PIN rules apply.
-  - tesseract.js loads only when Photo or the Write fallback is used. Its worker, WASM core, and `eng`/`spa`/`por` language data (a few MB) come from the jsDelivr CDN the first time, and the browser caches them after that. It needs internet that first time, so it does not work in a fully offline local room.
+**Front screen → More tools** (below Create room and Join; no room, no QR). The PIN gate covers these pages and their translate calls.
+- **📷 Photo translate** (`?view=photo`): take or upload a photo and pick the text language (EN, ES, PT, or Auto, which loads all three). **tesseract.js** reads the text in the browser. You can edit it, and it is translated through the normal chain (DeepL → MyMemory → MinT → mock) into EN/ES/PT.
+- **✍️ Write & translate** (`?view=write`): draw with a finger, tap Recognize, and the text is translated into EN/ES/PT.
+  - If the browser has the **Handwriting Recognition API** (`navigator.createHandwritingRecognizer`, today only Chromium on ChromeOS), its on-device model is used.
+  - Everywhere else, the drawing is read by the same free, on-device tesseract.js OCR. That works for neat, large block letters; cursive mostly fails. No hosted handwriting API and no key are used.
+- **💬 Two-person conversation** (`?view=talk`): one phone, two languages. Pick a language for each person and tap Start once. The mic stays on, and each phrase shows its translation for the other person.
+  - Web Speech has **no real language auto-detect**, since one recognizer listens in one locale at a time, so this uses turn-taking:
+    1. It listens in one person's language.
+    2. Each finished phrase is filed under the language its words support (a word-marker detect step on the transcript, limited to the two languages).
+    3. After about 1.6 seconds of quiet it flips to the other person's language.
+  - Tap 🎤 for whoever is actually speaking to correct it. On iPhone the first `webkitSpeechRecognition` is reused, and only its `lang` changes.
+  - **Limits:** if the same person keeps talking after a pause, their next phrase is heard in the other locale and usually comes out garbled. The detect step can re-file clear text but cannot re-transcribe audio. iPhone Safari's one-shot sessions add a short gap at each switch. Firefox has no Web Speech, so this tool is not available there.
+
+**In a room** (host and guest):
+- **⋯ More** under Type + Send opens Write and Photo. Write fills the Type + Send box. Photo's **Post as caption** sends through Type + Send, so the one-speaker floor and PIN rules apply.
+- **⇄** next to the Watch label trades the Spoken and Watch languages in one tap. It needs a single Watch language that differs from Spoken.
+
+tesseract.js loads only when Photo or the Write fallback is used. Its worker, WASM core, and `eng`/`spa`/`por` data (a few MB) come from the jsDelivr CDN the first time, and the browser caches them after that. It needs internet that first time, so it does not work in a fully offline local room.
 
 ## Meeting PIN (optional)
 
