@@ -1,7 +1,15 @@
 import type { Lang } from "./types.ts";
 
 /** One phrase on the Two-person conversation page. */
-export type TalkLine = { id: number; lang: Lang; original: string; rows: Record<Lang, string> | null };
+export type TalkLine = {
+  /** The page's utterance id: one bubble per utterance, updated in place. */
+  id: number;
+  lang: Lang;
+  original: string;
+  rows: Record<Lang, string> | null;
+  /** Still hearing interims for this utterance. */
+  live?: boolean;
+};
 
 /** The other person's language: what a phrase is shown in, big, in the split view. */
 export function shownLang(line: Pick<TalkLine, "lang">, pair: readonly [Lang, Lang]): Lang {
