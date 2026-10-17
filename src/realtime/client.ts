@@ -36,6 +36,11 @@ export function connectRoom(opts: {
   onStatus: (status: ConnStatus) => void;
   onJoined?: (info: { peerId: string; floor: FloorState }) => void;
   onFloor?: (floor: FloorState, notice?: FloorNotice) => void;
+  /**
+   * Asked on reconnect when we held the floor at the drop. Return false to let
+   * it go (a guest whose Type + Send claim is idle). Omitted means reclaim (host).
+   */
+  keepFloorOnReconnect?: () => boolean;
 }): RoomConnection {
   let ws: WebSocket | null = null;
   let closed = false;
@@ -153,8 +158,11 @@ export function connectRoom(opts: {
 
     sock.onopen = () => {
       if (sock !== ws) return;
-      const reclaim = reclaimOnOpen;
+      const held = reclaimOnOpen;
       reclaimOnOpen = false;
+      const reclaim = held && (opts.keepFloorOnReconnect?.() ?? true);
+      // Letting the floor go: a stale listening:true push must not grab it back.
+      if (held && !reclaim && queued?.listening) queued = { ...queued, listening: false };
       // `resume` lets the relay retire our previous (possibly half-open) socket
       // at once; `reclaim` asks it to hand that socket's floor to this one.
       sock.send(

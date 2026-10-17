@@ -134,16 +134,26 @@ type PaneView = { scrollTop: number; innerUp: boolean; pageUp: boolean };
  * page up, or the pane grew past the fold). Not used on the TV view, which no
  * one scrolls, so a wall display never shows the pill.
  */
+/** The wall-display TV view: nobody scrolls it, so it always follows the newest line. */
+function onTvWall(el: HTMLElement): boolean {
+  return Boolean(el.closest(".tv-screen:not(.smart-view-captions)"));
+}
+
 function belowFold(el: HTMLElement): boolean {
   const view = globalThis.window;
-  if (!view || el.closest(".tv-screen:not(.smart-view-captions)")) return false;
+  if (!view || onTvWall(el)) return false;
   return el.getBoundingClientRect().bottom - view.innerHeight > FOLLOW_SLOP_PX;
 }
 
 function readPanes(board: HTMLElement): Map<string, PaneView> {
   const out = new Map<string, PaneView>();
   for (const el of board.querySelectorAll<HTMLElement>("[data-lines]")) {
-    out.set(el.dataset.lines ?? "", { scrollTop: el.scrollTop, innerUp: isScrolledUp(el), pageUp: belowFold(el) });
+    const tv = onTvWall(el);
+    out.set(el.dataset.lines ?? "", {
+      scrollTop: el.scrollTop,
+      innerUp: !tv && isScrolledUp(el),
+      pageUp: belowFold(el),
+    });
   }
   return out;
 }
@@ -196,6 +206,18 @@ function bindPills(board: HTMLElement): void {
   });
   // Pane scroll does not bubble; listen in the capture phase.
   board.addEventListener("scroll", () => clearCaughtUp(board), true);
+  if (onTvWall(board)) {
+    // A resize or late web-font swap changes line heights: stick to the newest again.
+    const stick = () => {
+      if (!board.isConnected) {
+        globalThis.window?.removeEventListener("resize", stick);
+        return;
+      }
+      for (const el of board.querySelectorAll<HTMLElement>("[data-lines]")) el.scrollTop = el.scrollHeight;
+    };
+    globalThis.window?.addEventListener("resize", stick);
+    void globalThis.document?.fonts?.ready.then(stick);
+  }
   const onPageScroll = () => {
     if (!board.isConnected) {
       globalThis.window?.removeEventListener("scroll", onPageScroll);

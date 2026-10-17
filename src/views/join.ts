@@ -92,6 +92,10 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   let pendingSpeech: { text: string; lang: Lang } | null = null;
   /** Set by a fatal speech error; checked after an in-flight floor claim. */
   let speechFailed = false;
+  /** Live mic session on this phone (not a Type + Send claim). */
+  let micActive = false;
+  /** Captions queued or translating. */
+  let publishing = 0;
 
   const push = () =>
     conn?.push({
@@ -292,6 +296,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   };
 
   const stopLocalMic = () => {
+    micActive = false;
     speech.stop();
     releaseWake();
     liveInterim = "";
@@ -348,6 +353,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
         return;
       }
       void requestWake();
+      micActive = true;
       state = { ...state, listening: true, sourceLang, floor };
       renderDynamic();
       push();
@@ -432,7 +438,13 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
 
   let publishQueue: Promise<void> = Promise.resolve();
   const queuePublish = (text: string, coalesce = true, speechLang?: Lang) => {
-    publishQueue = publishQueue.then(() => publishFinal(text, coalesce, speechLang)).catch(() => undefined);
+    publishing += 1;
+    publishQueue = publishQueue
+      .then(() => publishFinal(text, coalesce, speechLang))
+      .catch(() => undefined)
+      .finally(() => {
+        publishing -= 1;
+      });
   };
 
   // Interims paint on this phone only. Peers receive one committed line.
@@ -618,6 +630,9 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
       room,
       role: "guest",
       name: displayName,
+      // A guest keeps the floor across a reconnect only while actually sending
+      // (live mic or a caption in flight). An idle Type + Send claim is released.
+      keepFloorOnReconnect: () => micActive || publishing > 0,
       onJoined(info) {
         peerId = info.peerId;
         const next = info.floor ?? floor;
@@ -630,6 +645,10 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
           error = someoneElseSpeaking(next);
         } else {
           floor = next;
+          // Came back without the floor (idle Type + Send claim was released).
+          if (state.listening && !micActive && !isFloorHolder(next, info.peerId)) {
+            state = { ...state, listening: false, floor };
+          }
         }
         renderDynamic();
       },
