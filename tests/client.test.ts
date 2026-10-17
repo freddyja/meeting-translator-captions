@@ -138,6 +138,68 @@ describe("connectRoom reconnect", () => {
   });
 });
 
+describe("connectRoom guest floor on reconnect", () => {
+  function guest(keep: () => boolean) {
+    return connectRoom({
+      room: "ABCD",
+      role: "guest",
+      name: "Ana",
+      onState: () => {},
+      onPeers: () => {},
+      onStatus: () => {},
+      keepFloorOnReconnect: keep,
+    });
+  }
+  const typed = { room: "ABCD", layout: "en" as const, sourceLang: "es" as const, listening: true, lines: [], floor: floorOf("p1") };
+
+  it("an idle Type + Send claim is released: no reclaim, and the stale push cannot re-grab it", () => {
+    const conn = guest(() => false);
+    const s1 = latest();
+    s1.accept();
+    s1.receive({ type: "joined", peerId: "p1", resumeToken: "t1", floor: floorOf("p1") });
+    conn.push(typed);
+    s1.drop();
+    mock.timers.tick(10_000);
+    const s2 = latest();
+    s2.accept();
+    assert.deepEqual(s2.sent.map((m) => m.type), ["join", "push"]);
+    assert.equal(s2.sent[0].resume, "t1", "still retires the old socket");
+    assert.equal(s2.sent[0].reclaim, undefined);
+    assert.equal(s2.sent[1].state.listening, false);
+    conn.close();
+  });
+
+  it("a guest actively sending keeps the floor", () => {
+    const conn = guest(() => true);
+    const s1 = latest();
+    s1.accept();
+    s1.receive({ type: "joined", peerId: "p1", resumeToken: "t1", floor: floorOf("p1") });
+    conn.push(typed);
+    s1.drop();
+    mock.timers.tick(10_000);
+    const s2 = latest();
+    s2.accept();
+    assert.deepEqual(s2.sent.map((m) => m.type), ["join", "floor", "push"]);
+    assert.equal(s2.sent[0].reclaim, true);
+    assert.equal(s2.sent[2].state.listening, true);
+    conn.close();
+  });
+
+  it("the decision is made at reconnect time, not at the drop", () => {
+    let sending = true;
+    const conn = guest(() => sending);
+    const s1 = latest();
+    s1.accept();
+    s1.receive({ type: "joined", peerId: "p1", resumeToken: "t1", floor: floorOf("p1") });
+    s1.drop();
+    sending = false; // the in-flight caption finished while offline
+    mock.timers.tick(10_000);
+    latest().accept();
+    assert.equal(latest().sent[0].reclaim, undefined);
+    conn.close();
+  });
+});
+
 describe("connectRoom floor request ids", () => {
   it("matches replies to requests by id, even out of order, and ignores unsolicited notices", async () => {
     const conn = connect();
