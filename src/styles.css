@@ -2922,69 +2922,251 @@ button, input, select, textarea {
   background: rgba(8, 18, 22, 0.86);
   backdrop-filter: blur(8px);
 }
+/* ---------- Two-person conversation page only ---------- */
+[data-tool="talk"] {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  gap: 0.35rem;
+  padding-top: max(0.6rem, env(safe-area-inset-top));
+  padding-bottom: max(0.6rem, env(safe-area-inset-bottom));
+}
+/* Wider than the 28rem entry column so an unfolded Fold uses its width. */
+.entry-scene[data-tool="talk"] > * {
+  width: min(100%, 48rem);
+}
+/* Brand and footer give their room to the dialogue. */
+[data-tool="talk"] > .brand,
+[data-tool="talk"] > .credit-footer {
+  display: none;
+}
+[data-tool="talk"] .tool-top .chip,
+[data-tool="talk"] .tool-back {
+  min-height: 36px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.82rem;
+}
+[data-tool="talk"] .tool-title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+[data-tool="talk"] .tool-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.55rem 0.65rem;
+}
 .talk-pick {
   display: grid;
-  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.35rem 0.6rem;
+}
+.talk-person-label {
+  margin: 0 0 0.2rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.talk-chips {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: nowrap;
+}
+.talk-chips .chip {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0.15rem 0.35rem;
+  font-size: 0.85rem;
+}
+.talk-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.3;
 }
 .talk-controls {
   display: grid;
-  gap: 0.5rem;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.4rem;
+  align-items: stretch;
+}
+.talk-controls .talk-start {
+  grid-column: 2;
+}
+.talk-who-btn[data-talk-who-lang="a"] {
+  grid-column: 1;
+  grid-row: 1;
+}
+.talk-who-btn[data-talk-who-lang="b"] {
+  grid-column: 3;
+  grid-row: 1;
+}
+.talk-who-btn {
+  min-height: 40px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.85rem;
 }
 .talk-start {
-  min-height: 56px;
-  font-size: 1.05rem;
+  min-height: 44px;
+  font-size: 1rem;
 }
 .talk-start.hot {
   background: var(--danger, #c0392b);
 }
-.talk-who {
-  display: flex;
-  gap: 0.5rem;
-}
-.talk-who .chip {
-  flex: 1;
+.talk-status {
+  margin: 0;
+  min-height: 1.1em;
+  font-size: 0.78rem;
 }
 .talk-log {
-  display: grid;
-  gap: 0.5rem;
-  max-height: 45vh;
+  flex: 1 1 auto;
+  min-height: 7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 .talk-line {
-  max-width: 88%;
-  padding: 0.55rem 0.8rem;
+  position: relative;
+  display: grid;
+  gap: 0.2rem;
+  max-width: 94%;
+  padding: 0.5rem 1.6rem 0.55rem 0.75rem;
   border-radius: 14px;
   border: 1px solid var(--line);
   background: var(--bg-window);
+  color: var(--cream);
+  font: inherit;
+  text-align: left;
+  cursor: zoom-in;
+  touch-action: manipulation;
+}
+button.talk-line:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .talk-a {
-  justify-self: start;
+  align-self: flex-start;
 }
 .talk-b {
-  justify-self: end;
+  align-self: flex-end;
   border-color: var(--accent);
 }
 .talk-live {
-  justify-self: center;
+  align-self: center;
+  margin: 0;
   opacity: 0.75;
   font-style: italic;
+  cursor: default;
 }
+.talk-expand-icon {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.45rem;
+  font-size: 0.85rem;
+  opacity: 0.6;
+}
+/* ~1.4–1.6x the old 18.4px dialogue, capped for wide/short screens. */
 .talk-big {
-  margin: 0;
-  font-size: 1.15rem;
-  line-height: 1.35;
+  font-size: clamp(1.6rem, min(7vw, 6.4vh), 2.4rem);
+  font-weight: 600;
+  line-height: 1.25;
   overflow-wrap: anywhere;
 }
 .talk-orig {
-  margin: 0.25rem 0 0;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: clamp(0.95rem, 3.6vw, 1.15rem);
+  line-height: 1.3;
   overflow-wrap: anywhere;
 }
-.talk-orig .control-label {
-  display: inline;
-  margin: 0 0.3rem 0 0;
+.talk-code {
+  margin-right: 0.3rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+}
+.talk-foot {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+.talk-foot .ghost {
+  min-height: 36px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.82rem;
+}
+/* Expanded: one language, full screen, live. */
+.entry-scene[data-tool="talk"] > .talk-full[hidden] {
+  display: none;
+}
+.entry-scene[data-tool="talk"] > .talk-full {
+  position: fixed;
+  inset: 0;
+  width: auto;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding:
+    max(0.7rem, env(safe-area-inset-top))
+    max(0.9rem, env(safe-area-inset-right))
+    max(0.7rem, env(safe-area-inset-bottom))
+    max(0.9rem, env(safe-area-inset-left));
+  background: var(--bg, #0b1417);
+  cursor: zoom-out;
+}
+.talk-full[hidden] {
+  display: none;
+}
+.talk-full-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.talk-full-title {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.talk-full-status {
+  flex: 1 1 auto;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.talk-full-back {
+  min-height: 44px;
+  padding: 0.3rem 0.9rem;
+  cursor: pointer;
+}
+.talk-full-log {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.talk-full-line {
+  margin: 0;
+  font-size: clamp(2rem, min(9.5vw, 8.5vh), 3.6rem);
+  font-weight: 600;
+  line-height: 1.22;
+  overflow-wrap: anywhere;
+  color: var(--cream);
+}
+.talk-full-line.is-spoken {
+  padding-left: 0.6rem;
+  border-left: 3px solid var(--accent);
+}
+.talk-full-live {
+  opacity: 0.7;
+  font-style: italic;
 }
 .extra-dialog .send-tv-sheet {
   min-width: 0;
@@ -3062,4 +3244,9 @@ button, input, select, textarea {
 .photo-translation p:last-child {
   margin: 0.2rem 0 0;
   overflow-wrap: anywhere;
+}
+.talk-who-btn[hidden],
+.talk-foot [hidden],
+.talk-hint[hidden] {
+  display: none;
 }
