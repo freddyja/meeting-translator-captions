@@ -6,7 +6,8 @@ import { mountWritePanel } from "../input/write-panel";
 import { goto, type ToolView } from "../router";
 import { readSpokenLang } from "../spoken-pref";
 import { createHandsFreeTurns, type HandsFreeTurns } from "../stt/hands-free";
-import { captionsIn, shownLang, type TalkLine } from "../talk-lines";
+import { captionsIn, shownLang } from "../talk-lines";
+import { createTalkTranscript } from "../talk-utterances";
 import { createWebSpeechProvider, isNonFatalSpeechNote } from "../stt/web-speech";
 import { createTranslator, translateAll } from "../translate";
 import { LANG_LABEL, LANG_SHORT, LANGS, isLang, speechLocale, type Lang } from "../types";
@@ -166,10 +167,7 @@ function mountTalkTool(root: HTMLElement): () => void {
   let langA: Lang = readSpokenLang();
   let langB: Lang = langA === "en" ? "es" : "en";
   let turns: HandsFreeTurns | null = null;
-  let interim = "";
   let error = "";
-  let nextId = 1;
-  const lines: TalkLine[] = [];
   let wakeLock: WakeLockSentinel | null = null;
 
   root.innerHTML = shell(
@@ -226,6 +224,12 @@ function mountTalkTool(root: HTMLElement): () => void {
   screenEl.append(full);
   const statusEl = root.querySelector("[data-talk-status]") as HTMLElement;
   const log = root.querySelector("[data-talk-log]") as HTMLElement;
+  // One bubble per utterance (page-owned id), updated in place with its translation.
+  const transcript = createTalkTranscript({
+    translate: (text, from) => translateAll(translator, text, from),
+    onChange: () => render(),
+  });
+  const lines = transcript.lines;
 
   const render = () => {
     paintChips(aBox, "data-talk-lang", langA);
@@ -260,13 +264,12 @@ function mountTalkTool(root: HTMLElement): () => void {
       const label = t("talkExpand", { lang: LANG_LABEL[to] });
       // The bubble expands its language. Speaker correction stays on the 🎤 buttons only.
       return `
-        <button class="talk-line talk-${side}" type="button" lang="${to}" data-talk-line-lang="${to}" aria-label="${escapeHtml(label)}">
+        <button class="talk-line talk-${side}${line.live ? " is-live" : ""}" type="button" data-talk-line-id="${line.id}" lang="${to}" data-talk-line-lang="${to}" aria-label="${escapeHtml(label)}">
           <span class="talk-expand-icon" aria-hidden="true">⤢</span>
           <span class="talk-big">${escapeHtml(big)}</span>
           <span class="talk-orig"><span class="talk-code">${LANG_SHORT[line.lang]}</span> ${escapeHtml(line.original)}</span>
         </button>`;
     });
-    if (interim) items.push(`<p class="talk-line talk-live"><span class="talk-orig">${escapeHtml(interim)}</span></p>`);
     log.innerHTML = items.join("") || `<p class="hint talk-empty">${escapeHtml(t("talkEmpty"))}</p>`;
     log.scrollTop = log.scrollHeight;
     for (const btn of foot.querySelectorAll<HTMLButtonElement>("[data-talk-expand]")) {
@@ -285,7 +288,6 @@ function mountTalkTool(root: HTMLElement): () => void {
         (row) =>
           `<p class="talk-full-line${row.spoken ? " is-spoken" : ""}" lang="${expanded}">${escapeHtml(row.text ?? t("translatingEllipsis"))}</p>`,
       );
-      if (interim) rows.push(`<p class="talk-full-line talk-full-live">${escapeHtml(interim)}</p>`);
       fullLog.innerHTML = rows.join("") || `<p class="hint">${escapeHtml(t("talkEmpty"))}</p>`;
       fullLog.scrollTop = fullLog.scrollHeight;
     }
@@ -299,7 +301,7 @@ function mountTalkTool(root: HTMLElement): () => void {
   const stop = () => {
     turns?.stop();
     turns = null;
-    interim = "";
+    transcript.close();
     speech.stop();
     void wakeLock?.release();
     wakeLock = null;
@@ -316,7 +318,8 @@ function mountTalkTool(root: HTMLElement): () => void {
       pair: [langA, langB],
       listening: langA,
       onTurnEnd: (next) => {
-        interim = "";
+        // Close the bubble before the flip: iOS commits its draft as the locale changes.
+        transcript.close();
         listen(next);
         render();
       },
@@ -334,33 +337,30 @@ function mountTalkTool(root: HTMLElement): () => void {
   speech.onResult = (result) => {
     if (!turns) return;
     error = "";
-    const lang = turns.heard(result.text, result.isFinal);
+    const text = result.text.trim();
     if (!result.isFinal) {
-      interim = result.text.trim();
-      render();
+      // Still talking: hold the turn open. Interims grow the open bubble in place.
+      turns.heard(text, false);
+      if (text) transcript.heard(text, false, turns.listening);
+      else render();
       return;
     }
-    interim = "";
+    const update = transcript.heard(text, true, turns.listening);
+    if (!update) return render();
+    // A late repeat of a bubble whose turn already ended: text only, no turn-taking.
+    if (update.reemit) return;
+    const lang = turns.heard(update.utterance.text, true);
     if (!lang) return render();
     if (lang !== turns.listening) {
       // The words were clearly the other person's language: follow them.
       turns.listenIn(lang);
-      turns.heard(result.text, true);
+      turns.heard(update.utterance.text, true);
+      transcript.refile(update.utterance.id, lang);
       listen(lang);
+    } else if (lang !== update.utterance.lang) {
+      transcript.refile(update.utterance.id, lang);
     }
-    const line: TalkLine = { id: nextId++, lang, original: result.text.trim(), rows: null };
-    lines.push(line);
-    while (lines.length > 30) lines.shift();
     render();
-    void translateAll(translator, line.original, lang)
-      .then((rows) => {
-        line.rows = rows;
-        render();
-      })
-      .catch(() => {
-        line.rows = { en: line.original, es: line.original, pt: line.original };
-        render();
-      });
   };
   speech.onError = (message) => {
     error = message;
@@ -389,6 +389,8 @@ function mountTalkTool(root: HTMLElement): () => void {
     const which = (event.target as HTMLElement).closest<HTMLElement>("[data-talk-who-lang]")?.dataset.talkWhoLang;
     if (!turns || (which !== "a" && which !== "b")) return;
     const lang = which === "a" ? langA : langB;
+    // Speaker change: the next words start a new bubble.
+    transcript.close();
     turns.listenIn(lang);
     listen(lang);
     render();
@@ -417,8 +419,7 @@ function mountTalkTool(root: HTMLElement): () => void {
     if (event.key === "Escape" && expanded) collapse();
   };
   const onClear = () => {
-    lines.length = 0;
-    render();
+    transcript.clear();
   };
   const clearBtn = root.querySelector("[data-talk-clear]") as HTMLButtonElement;
   aBox.addEventListener("click", onPickA);
@@ -436,6 +437,7 @@ function mountTalkTool(root: HTMLElement): () => void {
 
   return () => {
     stop();
+    transcript.destroy();
     aBox.removeEventListener("click", onPickA);
     bBox.removeEventListener("click", onPickB);
     startBtn.removeEventListener("click", onStart);
