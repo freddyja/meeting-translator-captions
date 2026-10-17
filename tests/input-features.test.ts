@@ -245,3 +245,21 @@ describe("handwriting", () => {
     assert.deepEqual(inkBounds([[{ x: 10, y: 20, t: 0 }, { x: 30, y: 25, t: 1 }]], 5), { x: 5, y: 15, w: 30, h: 15 });
   });
 });
+
+describe("More tools routes", async () => {
+  const { parseRoute, isToolView, TOOL_VIEWS } = await import("../src/router.ts");
+  it("opens the three standalone tools without a room", () => {
+    assert.deepEqual([...TOOL_VIEWS], ["photo", "write", "talk"]);
+    for (const view of TOOL_VIEWS) {
+      assert.deepEqual(parseRoute(`?view=${view}`), { view, room: "" });
+      // A stray room never turns a tool into a room view.
+      assert.deepEqual(parseRoute(`?view=${view}&room=ABCD`), { view, room: "" });
+    }
+  });
+  it("keeps room views and the home fallback unchanged", () => {
+    assert.equal(parseRoute("?view=phone&room=ABCD").view, "phone");
+    assert.equal(parseRoute("?view=join&room=ABCD").view, "join");
+    assert.equal(parseRoute("?view=nope").view, "home");
+    assert.equal(isToolView("tv"), false);
+  });
+});

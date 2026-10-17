@@ -1,6 +1,13 @@
 import type { Lang, PhoneRole } from "./types";
 
-export type View = "home" | "phone" | "tv" | "join";
+export type View = "home" | "phone" | "tv" | "join" | ToolView;
+/** Standalone, no-room tools from the front screen's More tools. */
+export type ToolView = "photo" | "write" | "talk";
+export const TOOL_VIEWS: readonly ToolView[] = ["photo", "write", "talk"];
+
+export function isToolView(value: unknown): value is ToolView {
+  return typeof value === "string" && (TOOL_VIEWS as readonly string[]).includes(value);
+}
 
 export type Route = {
   view: View;
@@ -42,6 +49,7 @@ export function parseRoute(search: string): Route {
       lang: parseTvLang(params.get("lang")),
     };
   }
+  if (isToolView(view)) return { view, room: "" };
   return { view: "home", room };
 }
 
@@ -63,6 +71,8 @@ export function goto(view: View, room = ""): void {
   const url = new URL(location.href);
   if (view === "home") {
     url.search = "";
+  } else if (isToolView(view)) {
+    url.search = new URLSearchParams({ view }).toString();
   } else {
     url.search = new URLSearchParams({ view, room }).toString();
   }

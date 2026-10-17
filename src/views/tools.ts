@@ -1,0 +1,372 @@
+import { brandBlock, creditFooter } from "../brand";
+import { escapeHtml } from "../dom";
+import { bindUiLang, t, uiLangSwitcherHtml, type MessageKey } from "../i18n";
+import { mountPhotoPanel, translationRowsHtml } from "../input/photo-panel";
+import { mountWritePanel } from "../input/write-panel";
+import { goto, type ToolView } from "../router";
+import { readSpokenLang } from "../spoken-pref";
+import { createHandsFreeTurns, otherLang, type HandsFreeTurns } from "../stt/hands-free";
+import { createWebSpeechProvider, isNonFatalSpeechNote } from "../stt/web-speech";
+import { createTranslator, translateAll } from "../translate";
+import { LANG_LABEL, LANG_SHORT, LANGS, isLang, speechLocale, type Lang } from "../types";
+
+/**
+ * Standalone, no-room tools reached from the front screen's More tools.
+ * No room, no QR, no floor. The PIN gate still applies: app.ts gates the page,
+ * and translation goes through the same authFetch translator chain.
+ */
+const TITLE: Record<ToolView, MessageKey> = {
+  photo: "toolPhoto",
+  write: "toolWrite",
+  talk: "toolTalk",
+};
+
+function shell(view: ToolView, body: string): string {
+  return `
+    <section class="screen tool-screen entry-scene scene-bg" data-tool="${view}">
+      <div class="tool-top">
+        <button class="ghost tool-back" data-tool-home type="button" data-i18n="toolHome"></button>
+        ${uiLangSwitcherHtml(true)}
+      </div>
+      ${brandBlock(true)}
+      <h1 class="tool-title" data-i18n="${TITLE[view]}"></h1>
+      <div class="tool-card">${body}</div>
+      ${creditFooter()}
+    </section>
+  `;
+}
+
+function langChips(attr: string, selected: Lang): string {
+  return LANGS.map(
+    (lang) =>
+      `<button class="chip${lang === selected ? " active" : ""}" type="button" ${attr}="${lang}" aria-pressed="${lang === selected}">${LANG_SHORT[lang]} ${LANG_LABEL[lang]}</button>`,
+  ).join("");
+}
+
+function paintChips(box: HTMLElement, attr: string, selected: Lang) {
+  for (const btn of box.querySelectorAll<HTMLButtonElement>(`[${attr}]`)) {
+    const on = btn.getAttribute(attr) === selected;
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-pressed", String(on));
+  }
+}
+
+function bindHome(root: HTMLElement): () => void {
+  const btn = root.querySelector("[data-tool-home]") as HTMLButtonElement;
+  const onHome = () => goto("home");
+  btn.addEventListener("click", onHome);
+  return () => btn.removeEventListener("click", onHome);
+}
+
+export function mountTool(root: HTMLElement, view: ToolView): () => void {
+  if (view === "photo") return mountPhotoTool(root);
+  if (view === "write") return mountWriteTool(root);
+  return mountTalkTool(root);
+}
+
+// ---------- Photo translate ----------
+function mountPhotoTool(root: HTMLElement): () => void {
+  const translator = createTranslator();
+  root.innerHTML = shell("photo", `<div data-photo-host></div>`);
+  const panel = mountPhotoPanel(root.querySelector("[data-photo-host]") as HTMLElement, {
+    lang: readSpokenLang,
+    translate: (text, from) => translateAll(translator, text, from),
+  });
+  const unbindHome = bindHome(root);
+  const unbindLang = bindUiLang(root, () => panel.repaint());
+  return () => {
+    panel.destroy();
+    unbindHome();
+    unbindLang();
+  };
+}
+
+// ---------- Write & translate ----------
+function mountWriteTool(root: HTMLElement): () => void {
+  const translator = createTranslator();
+  let lang: Lang = readSpokenLang();
+  root.innerHTML = shell(
+    "write",
+    `
+      <p class="control-label" data-i18n="writeLang"></p>
+      <div class="chips" data-write-lang role="group" data-i18n-aria="writeLang">${langChips("data-write-lang-id", lang)}</div>
+      <div data-write-host></div>
+      <p class="control-label" data-i18n="photoTextFound"></p>
+      <textarea class="photo-text" data-write-text rows="2"></textarea>
+      <div class="row-actions">
+        <button class="ghost" data-write-reset type="button" data-i18n="talkClear"></button>
+        <button class="primary" data-write-translate type="button" data-i18n="retranslate"></button>
+      </div>
+      <div class="photo-translations" data-write-out></div>
+    `,
+  );
+  const langBox = root.querySelector("[data-write-lang]") as HTMLElement;
+  const textBox = root.querySelector("[data-write-text]") as HTMLTextAreaElement;
+  const out = root.querySelector("[data-write-out]") as HTMLElement;
+  let token = 0;
+  const translateNow = async () => {
+    const text = textBox.value.trim();
+    if (!text) return;
+    const mine = ++token;
+    out.innerHTML = `<p class="hint">${escapeHtml(t("translatingEllipsis"))}</p>`;
+    try {
+      const rows = await translateAll(translator, text, lang);
+      if (mine === token) out.innerHTML = translationRowsHtml(rows);
+    } catch {
+      if (mine === token) out.innerHTML = "";
+    }
+  };
+  const panel = mountWritePanel(root.querySelector("[data-write-host]") as HTMLElement, {
+    lang: () => lang,
+    onText: (text) => {
+      textBox.value = textBox.value.trim() ? `${textBox.value.trim()} ${text}` : text;
+      void translateNow();
+    },
+  });
+  const onLang = (event: Event) => {
+    const next = (event.target as HTMLElement).closest<HTMLElement>("[data-write-lang-id]")?.dataset.writeLangId;
+    if (!isLang(next)) return;
+    lang = next;
+    paintChips(langBox, "data-write-lang-id", lang);
+    panel.redraw();
+  };
+  const onTranslate = () => void translateNow();
+  const onReset = () => {
+    textBox.value = "";
+    out.innerHTML = "";
+    panel.clear();
+  };
+  const translateBtn = root.querySelector("[data-write-translate]") as HTMLButtonElement;
+  const resetBtn = root.querySelector("[data-write-reset]") as HTMLButtonElement;
+  langBox.addEventListener("click", onLang);
+  translateBtn.addEventListener("click", onTranslate);
+  resetBtn.addEventListener("click", onReset);
+  const onResize = () => panel.redraw();
+  window.addEventListener("resize", onResize);
+  const unbindHome = bindHome(root);
+  const unbindLang = bindUiLang(root, () => panel.redraw());
+  requestAnimationFrame(() => panel.redraw());
+  return () => {
+    langBox.removeEventListener("click", onLang);
+    translateBtn.removeEventListener("click", onTranslate);
+    resetBtn.removeEventListener("click", onReset);
+    window.removeEventListener("resize", onResize);
+    panel.destroy();
+    unbindHome();
+    unbindLang();
+  };
+}
+
+// ---------- Two-person conversation ----------
+type TalkLine = { id: number; lang: Lang; original: string; rows: Record<Lang, string> | null };
+
+function mountTalkTool(root: HTMLElement): () => void {
+  const translator = createTranslator();
+  const speech = createWebSpeechProvider();
+  let langA: Lang = readSpokenLang();
+  let langB: Lang = langA === "en" ? "es" : "en";
+  let turns: HandsFreeTurns | null = null;
+  let interim = "";
+  let error = "";
+  let nextId = 1;
+  const lines: TalkLine[] = [];
+  let wakeLock: WakeLockSentinel | null = null;
+
+  root.innerHTML = shell(
+    "talk",
+    `
+      <div class="talk-pick">
+        <div>
+          <p class="control-label" data-i18n="talkLangA"></p>
+          <div class="chips" data-talk-a>${langChips("data-talk-lang", langA)}</div>
+        </div>
+        <div>
+          <p class="control-label" data-i18n="talkLangB"></p>
+          <div class="chips" data-talk-b>${langChips("data-talk-lang", langB)}</div>
+        </div>
+      </div>
+      <p class="hint" data-i18n="talkHint"></p>
+      <div class="talk-controls">
+        <button class="primary talk-start" data-talk-start type="button"></button>
+        <div class="talk-who" data-talk-who hidden>
+          <button class="chip" data-talk-who-lang="a" type="button"></button>
+          <button class="chip" data-talk-who-lang="b" type="button"></button>
+        </div>
+      </div>
+      <p class="hint" data-talk-status role="status" aria-live="polite"></p>
+      <div class="talk-log" data-talk-log aria-live="polite"></div>
+      <div class="row-actions"><button class="ghost" data-talk-clear type="button" data-i18n="talkClear"></button></div>
+    `,
+  );
+  const aBox = root.querySelector("[data-talk-a]") as HTMLElement;
+  const bBox = root.querySelector("[data-talk-b]") as HTMLElement;
+  const startBtn = root.querySelector("[data-talk-start]") as HTMLButtonElement;
+  const whoBox = root.querySelector("[data-talk-who]") as HTMLElement;
+  const statusEl = root.querySelector("[data-talk-status]") as HTMLElement;
+  const log = root.querySelector("[data-talk-log]") as HTMLElement;
+
+  const render = () => {
+    paintChips(aBox, "data-talk-lang", langA);
+    paintChips(bBox, "data-talk-lang", langB);
+    const on = Boolean(turns);
+    startBtn.textContent = on ? t("talkStop") : t("talkStart");
+    startBtn.classList.toggle("hot", on);
+    startBtn.setAttribute("aria-pressed", String(on));
+    whoBox.hidden = !on;
+    for (const btn of whoBox.querySelectorAll<HTMLButtonElement>("[data-talk-who-lang]")) {
+      const lang = btn.dataset.talkWhoLang === "a" ? langA : langB;
+      btn.textContent = `🎤 ${LANG_SHORT[lang]}`;
+      btn.setAttribute("aria-label", t("talkListening", { lang: LANG_LABEL[lang] }));
+      const active = turns?.listening === lang;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-pressed", String(active));
+    }
+    statusEl.textContent = error
+      ? error
+      : !speech.supported
+        ? t("talkNoSpeech")
+        : turns
+          ? t("talkListening", { lang: LANG_LABEL[turns.listening] })
+          : "";
+    const items = lines.map((line) => {
+      const to = otherLang(line.lang, [langA, langB]);
+      const side = line.lang === langA ? "a" : "b";
+      const big = line.rows ? line.rows[to] : t("translatingEllipsis");
+      return `
+        <article class="talk-line talk-${side}" lang="${to}">
+          <p class="talk-big">${escapeHtml(big)}</p>
+          <p class="talk-orig"><span class="control-label">${LANG_SHORT[line.lang]}</span> ${escapeHtml(line.original)}</p>
+        </article>`;
+    });
+    if (interim) items.push(`<article class="talk-line talk-live"><p class="talk-orig">${escapeHtml(interim)}</p></article>`);
+    log.innerHTML = items.join("") || `<p class="hint talk-empty">${escapeHtml(t("talkEmpty"))}</p>`;
+    log.scrollTop = log.scrollHeight;
+  };
+
+  const listen = (lang: Lang) => {
+    // iPhone: the first recognizer is reused and only its lang changes.
+    speech.setLang(speechLocale(lang), true);
+  };
+
+  const stop = () => {
+    turns?.stop();
+    turns = null;
+    interim = "";
+    speech.stop();
+    void wakeLock?.release();
+    wakeLock = null;
+  };
+
+  const start = () => {
+    error = "";
+    if (langA === langB) {
+      error = t("talkSameLang");
+      render();
+      return;
+    }
+    turns = createHandsFreeTurns({
+      pair: [langA, langB],
+      listening: langA,
+      onTurnEnd: (next) => {
+        interim = "";
+        listen(next);
+        render();
+      },
+    });
+    // start() on the tap stack: iOS rejects recognition.start() after an await.
+    listen(langA);
+    speech.start();
+    void navigator.wakeLock
+      ?.request("screen")
+      .then((lock) => (wakeLock = lock))
+      .catch(() => undefined);
+    render();
+  };
+
+  speech.onResult = (result) => {
+    if (!turns) return;
+    error = "";
+    const lang = turns.heard(result.text, result.isFinal);
+    if (!result.isFinal) {
+      interim = result.text.trim();
+      render();
+      return;
+    }
+    interim = "";
+    if (!lang) return render();
+    if (lang !== turns.listening) {
+      // The words were clearly the other person's language: follow them.
+      turns.listenIn(lang);
+      turns.heard(result.text, true);
+      listen(lang);
+    }
+    const line: TalkLine = { id: nextId++, lang, original: result.text.trim(), rows: null };
+    lines.push(line);
+    while (lines.length > 30) lines.shift();
+    render();
+    void translateAll(translator, line.original, lang)
+      .then((rows) => {
+        line.rows = rows;
+        render();
+      })
+      .catch(() => {
+        line.rows = { en: line.original, es: line.original, pt: line.original };
+        render();
+      });
+  };
+  speech.onError = (message) => {
+    error = message;
+    if (!isNonFatalSpeechNote(message)) stop();
+    render();
+  };
+
+  const onPick = (which: "a" | "b") => (event: Event) => {
+    const next = (event.target as HTMLElement).closest<HTMLElement>("[data-talk-lang]")?.dataset.talkLang;
+    if (!isLang(next)) return;
+    if (which === "a") langA = next;
+    else langB = next;
+    if (turns) {
+      // New pair: restart turn-taking on the same recognizer.
+      stop();
+      start();
+      return;
+    }
+    error = "";
+    render();
+  };
+  const onPickA = onPick("a");
+  const onPickB = onPick("b");
+  const onStart = () => (turns ? (stop(), render()) : start());
+  const onWho = (event: Event) => {
+    const which = (event.target as HTMLElement).closest<HTMLElement>("[data-talk-who-lang]")?.dataset.talkWhoLang;
+    if (!turns || (which !== "a" && which !== "b")) return;
+    const lang = which === "a" ? langA : langB;
+    turns.listenIn(lang);
+    listen(lang);
+    render();
+  };
+  const onClear = () => {
+    lines.length = 0;
+    render();
+  };
+  const clearBtn = root.querySelector("[data-talk-clear]") as HTMLButtonElement;
+  aBox.addEventListener("click", onPickA);
+  bBox.addEventListener("click", onPickB);
+  startBtn.addEventListener("click", onStart);
+  whoBox.addEventListener("click", onWho);
+  clearBtn.addEventListener("click", onClear);
+  const unbindHome = bindHome(root);
+  const unbindLang = bindUiLang(root, render);
+  render();
+
+  return () => {
+    stop();
+    aBox.removeEventListener("click", onPickA);
+    bBox.removeEventListener("click", onPickB);
+    startBtn.removeEventListener("click", onStart);
+    whoBox.removeEventListener("click", onWho);
+    clearBtn.removeEventListener("click", onClear);
+    unbindHome();
+    unbindLang();
+  };
+}
