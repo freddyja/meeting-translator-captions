@@ -14,7 +14,11 @@ import { bindLocalSetup, localSetupInnerHtml } from "../local-setup";
 import { bindOfflineModeToggle, isOfflineMeeting } from "../offline-mode";
 import { tvQrSvg } from "../qr";
 import { connectRoom, type RoomConnection } from "../realtime/client";
-import { goto, joinUrl, tvUrl } from "../router";
+import { withLinkToken } from "../auth";
+import { goto, joinUrl, tvUrl as plainTvUrl } from "../router";
+
+/** TV links carry this device's token in #k= so the TV skips the PIN pad. Join links never do. */
+const tvUrl: typeof plainTvUrl = (room, lang) => withLinkToken(plainTvUrl(room, lang));
 import { createWebSpeechProvider, isNonFatalSpeechNote, isSpeechFallbackMessage } from "../stt/web-speech";
 import { speechSourceLang } from "../speech-caption";
 import { readSpokenLang, writeSpokenLang } from "../spoken-pref";
@@ -614,7 +618,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
   const paintSendTv = () => {
     const url = tvUrl(room);
     qrBox.innerHTML = tvQrSvg(url, t("qrTv"));
-    urlEl.textContent = url;
+    urlEl.textContent = plainTvUrl(room);
     langList.innerHTML = LANGS.map((lang) => {
       const langUrl = tvUrl(room, lang);
       return `
@@ -622,7 +626,7 @@ export function mountPhone(root: HTMLElement, room: string): () => void {
           <div class="send-tv-lang-qr">${tvQrSvg(langUrl, t("qrLang", { name: LANG_LABEL[lang] }))}</div>
           <div class="send-tv-lang-meta">
             <p class="control-label">${LANG_SHORT[lang]} · ${LANG_LABEL[lang]}</p>
-            <p class="send-tv-lang-url">${escapeHtml(langUrl)}</p>
+            <p class="send-tv-lang-url">${escapeHtml(plainTvUrl(room, lang))}</p>
             <div class="send-tv-lang-actions">
               <button class="secondary" data-copy-lang="${lang}" type="button">${escapeHtml(t("copyLangLink", { lang: LANG_SHORT[lang] }))}</button>
               <button class="ghost" data-open-lang="${lang}" type="button">${escapeHtml(t("open"))}</button>

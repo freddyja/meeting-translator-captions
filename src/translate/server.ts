@@ -1,3 +1,4 @@
+import { authFetch } from "../auth";
 import { isOfflineMeeting } from "../offline-mode";
 import { isLang, type Lang } from "../types";
 import { stripForeignEchoes } from "./panes";
@@ -60,5 +61,7 @@ async function postTranslate(
   // throws, so withFallback still runs MinT then mock.
   return (await postTranslateWithRetry("/api/translate", payload, {
     onStatus: reportTranslateStatus,
+    // Bearer token for the PIN gate; a 401 clears it and brings the pad back.
+    fetchImpl: (url, init) => authFetch(url, init),
   })) as TranslateResponse;
 }

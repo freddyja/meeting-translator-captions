@@ -1,4 +1,4 @@
-const CACHE = "meeting-translator-v5";
+const CACHE = "meeting-translator-v6";
 const PRECACHE = [
   "/",
   "/index.html",
@@ -11,7 +11,7 @@ const PRECACHE = [
   "/icon-512-maskable.png",
 ];
 
-const PASS = new Set(["/caption-ws", "/health", "/api/translate"]);
+const PASS = new Set(["/caption-ws", "/health", "/api/translate", "/api/login", "/api/auth"]);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
