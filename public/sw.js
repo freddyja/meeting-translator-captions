@@ -1,7 +1,7 @@
 // The build stamps BUILD with the deploy id (vite.config.ts), so every deploy ships a
 // byte-different sw.js and the browser always sees an update.
 const BUILD = "__BUILD_ID__";
-const CACHE = `meeting-translator-v13-${BUILD}`;
+const CACHE = `meeting-translator-v14-${BUILD}`;
 const PRECACHE = [
   "/",
   "/index.html",

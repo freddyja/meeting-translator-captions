@@ -9,6 +9,9 @@ import {
 } from "../install";
 import { generateRoomCode, isRoomCode, normalizeRoomCode } from "../room";
 import { goto, isToolView } from "../router";
+import { hapticMode, hapticsEnabled, setHapticsEnabled } from "../haptics";
+import { isAppleMobile } from "../stt/capability";
+import { mountInstallBanner, openTour, tourDone } from "./onboarding-ui";
 
 export function mountHome(root: HTMLElement): () => void {
   root.innerHTML = `
@@ -46,6 +49,13 @@ export function mountHome(root: HTMLElement): () => void {
           <button class="tool-tile" data-tool-open="talk" type="button"><span class="tool-icon" aria-hidden="true">💬</span><strong data-i18n="toolTalk"></strong><small data-i18n="toolTalkDesc"></small></button>
         </div>
       </section>
+      <div class="home-help">
+        <button class="ghost help-link" type="button" data-tour-open data-i18n="helpLink"></button>
+        <label class="haptics-toggle" data-haptics-row hidden>
+          <input type="checkbox" data-haptics-toggle />
+          <span data-i18n="hapticsToggle"></span>
+        </label>
+      </div>
       ${creditFooter()}
     </section>
   `;
@@ -134,6 +144,40 @@ export function mountHome(root: HTMLElement): () => void {
   joinPhone?.addEventListener("click", onJoinPhone);
   installBtn.addEventListener("click", onInstall);
   tiles.addEventListener("click", onTool);
+  const screen = root.querySelector(".home-screen") as HTMLElement;
+  let closeTour: (() => void) | null = null;
+  let unBanner: () => void = () => {};
+  const showBanner = () => {
+    unBanner();
+    unBanner = mountInstallBanner(screen, () => closeTour !== null);
+  };
+  const startTour = () => {
+    if (closeTour) return;
+    unBanner();
+    closeTour = openTour(screen, () => {
+      closeTour = null;
+      showBanner();
+    });
+  };
+  const tourBtn = root.querySelector("[data-tour-open]") as HTMLButtonElement;
+  tourBtn.addEventListener("click", startTour);
+  // Haptics toggle only where a tick is possible (Android vibrate, iOS 18 switch).
+  const hapticsRow = root.querySelector("[data-haptics-row]") as HTMLElement;
+  const hapticsBox = root.querySelector("[data-haptics-toggle]") as HTMLInputElement;
+  hapticsRow.hidden =
+    hapticMode({
+      enabled: true,
+      reducedMotion: false,
+      hasVibrate: typeof navigator.vibrate === "function",
+      appleMobile: isAppleMobile(),
+      switchSupported: "switch" in HTMLInputElement.prototype,
+    }) === "off";
+  hapticsBox.checked = hapticsEnabled();
+  const onHaptics = () => setHapticsEnabled(hapticsBox.checked);
+  hapticsBox.addEventListener("change", onHaptics);
+  // The home view is never the TV or a room, so first run is safe to show here.
+  if (!tourDone()) startTour();
+  else showBanner();
   const unsubscribe = subscribeInstall(paintInstall);
   const unbindLang = bindUiLang(root, paintInstall);
   paintInstall();
@@ -145,6 +189,10 @@ export function mountHome(root: HTMLElement): () => void {
     joinPhone?.removeEventListener("click", onJoinPhone);
     installBtn.removeEventListener("click", onInstall);
     tiles.removeEventListener("click", onTool);
+    tourBtn.removeEventListener("click", startTour);
+    hapticsBox.removeEventListener("change", onHaptics);
+    closeTour?.();
+    unBanner();
     unsubscribe();
     unbindLang();
   };
