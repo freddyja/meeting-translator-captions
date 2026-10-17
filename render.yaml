@@ -21,3 +21,7 @@ services:
       # TRANSLATE_PROVIDER=deepl
       # DEEPL_API_KEY=...
       # Without a DeepL key the app uses MyMemory (no key).
+      # Optional 4-digit meeting PIN. Set the value in the Render dashboard
+      # (never commit it). Unset = no PIN. APP_PIN works too and wins if both set.
+      - key: APP_PASSWORD
+        sync: false

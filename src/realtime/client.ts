@@ -1,3 +1,4 @@
+import { checkAuth, signalAuthRequired, wsAuthQuery } from "../auth.ts";
 import {
   emptyFloor,
   type ConnStatus,
@@ -149,15 +150,24 @@ export function connectRoom(opts: {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     let sock: WebSocket;
     try {
-      sock = new WebSocket(`${proto}//${location.host}/caption-ws`);
+      sock = new WebSocket(`${proto}//${location.host}/caption-ws${wsAuthQuery()}`);
     } catch {
       drop();
       return;
     }
     ws = sock;
+    let opened = false;
+    // Never opened: maybe the PIN gate refused the upgrade (browsers hide the 401).
+    const probeAuth = () => {
+      if (opened || failures < 1) return;
+      void checkAuth().then((status) => {
+        if (status?.required && !status.ok) signalAuthRequired();
+      });
+    };
 
     sock.onopen = () => {
       if (sock !== ws) return;
+      opened = true;
       const held = reclaimOnOpen;
       reclaimOnOpen = false;
       const reclaim = held && (opts.keepFloorOnReconnect?.() ?? true);
@@ -236,11 +246,13 @@ export function connectRoom(opts: {
 
     sock.onclose = () => {
       if (sock !== ws) return;
+      probeAuth();
       drop();
     };
 
     sock.onerror = () => {
       if (sock !== ws) return;
+      probeAuth();
       drop();
     };
   };

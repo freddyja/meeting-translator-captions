@@ -2693,3 +2693,117 @@ button, input, select, textarea {
     background: none;
   }
 }
+
+/* ---------- PIN gate (from fire-fellowship-captions#46) ---------- */
+.pin-card {
+  display: grid;
+  gap: 0.9rem;
+  justify-items: center;
+  width: 100%;
+  max-width: 22rem;
+  margin: 0.5rem auto 0;
+  padding: 1.25rem 1rem 1.4rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-window);
+  box-shadow: var(--shadow);
+}
+
+.pin-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  color: var(--cream);
+  text-align: center;
+}
+
+.pin-help {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.pin-boxes {
+  display: grid;
+  grid-template-columns: repeat(4, 3.6rem);
+  gap: 0.6rem;
+}
+
+.pin-box {
+  width: 3.6rem;
+  height: 4.2rem;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-elev);
+  color: var(--cream);
+  font: 600 1.9rem/1 var(--font-ui);
+  text-align: center;
+  caret-color: var(--accent);
+}
+
+.pin-box:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.pin-box.filled {
+  border-color: var(--gold);
+}
+
+.pin-msg {
+  min-height: 1.4em;
+  margin: 0;
+  color: var(--gold);
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.pin-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.pin-key {
+  min-height: 4rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-elev);
+  color: var(--cream);
+  font: 600 1.6rem/1 var(--font-ui);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.pin-key:active:not(:disabled) {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.pin-key:disabled,
+.pin-box:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pin-key-alt {
+  font-size: 1rem;
+  color: var(--muted);
+}
+
+.pin-card.shake {
+  animation: pin-shake 0.35s ease;
+}
+
+@keyframes pin-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pin-card.shake { animation: none; }
+}

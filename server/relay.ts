@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
 import { WebSocket, WebSocketServer } from "ws";
+import { requestAuthorized } from "./auth.ts";
 
 type Role = "phone" | "tv" | "guest";
 
@@ -86,6 +87,12 @@ export function attachCaptionRelay(httpServer: Server | null, options: CaptionRe
   httpServer.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => {
     const url = req.url ?? "";
     if (!url.startsWith("/caption-ws")) return;
+    if (!requestAuthorized(req)) {
+      // PIN gate on and no valid ?auth= token: refuse before the upgrade.
+      socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+      socket.destroy();
+      return;
+    }
     wss.handleUpgrade(req, socket, head, (ws) => {
       wss.emit("connection", ws, req);
     });
