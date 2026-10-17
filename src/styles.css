@@ -233,6 +233,36 @@ button, input, select, textarea {
   gap: 0.75rem;
 }
 
+/* TV view: the whole screen is one viewport. Panes share the height left
+   under the header and clip their oldest lines, so the newest line is always
+   on screen (caption-board keeps each pane scrolled to the bottom). */
+.tv-screen:not(.smart-view-captions) {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tv-screen:not(.smart-view-captions) > .tv-board {
+  flex: 1 1 0;
+  min-height: 0;
+  /* Equal share per row, side by side or stacked (portrait). */
+  grid-auto-rows: minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.tv-screen:not(.smart-view-captions) .window {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tv-screen:not(.smart-view-captions) .lines {
+  overflow-y: hidden;
+  /* Soften the clipped oldest line instead of a hard cut. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 1.6rem);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 1.6rem);
+}
+
 .tv-top {
   display: flex;
   align-items: center;
