@@ -10,7 +10,8 @@ export function mountPin(root: HTMLElement, onUnlocked: () => void): () => void 
       ${uiLangSwitcherHtml("entry")}
       <form class="pin-card" data-pin-form autocomplete="off">
         <h2 class="pin-title" data-i18n="pinTitle">Enter the meeting PIN</h2>
-        <p class="pin-help" data-i18n="pinHelp">Ask the host for the 4-digit PIN. This device will remember it.</p>
+        <p class="pin-ask" data-i18n="pinAskHost">Ask the meeting host for the 4-digit code.</p>
+        <p class="pin-help" data-i18n="pinHelp">This phone will remember it.</p>
         <div class="pin-boxes" role="group" data-i18n-aria="pinTitle" aria-label="Enter the meeting PIN">
           ${[0, 1, 2, 3]
             .map(

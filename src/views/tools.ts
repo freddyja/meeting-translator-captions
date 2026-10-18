@@ -42,7 +42,7 @@ function shell(view: ToolView, body: string): string {
 function langChips(attr: string, selected: Lang, compact = false): string {
   return LANGS.map(
     (lang) =>
-      `<button class="chip${lang === selected ? " active" : ""}" type="button" ${attr}="${lang}" aria-pressed="${lang === selected}"${compact ? ` aria-label="${LANG_LABEL[lang]}" title="${LANG_LABEL[lang]}"` : ""}>${compact ? LANG_SHORT[lang] : `${LANG_SHORT[lang]} ${LANG_LABEL[lang]}`}</button>`,
+      `<button class="chip${lang === selected ? " active" : ""}${compact ? " chip-compact" : ""}" type="button" ${attr}="${lang}" aria-pressed="${lang === selected}">${LANG_LABEL[lang]}</button>`,
   ).join("");
 }
 
@@ -97,7 +97,6 @@ function mountWriteTool(root: HTMLElement): () => void {
       <p class="control-label" data-i18n="photoTextFound"></p>
       <textarea class="photo-text" data-write-text rows="2"></textarea>
       <div class="row-actions">
-        <button class="ghost" data-write-reset type="button" data-i18n="talkClear"></button>
         <button class="primary" data-write-translate type="button" data-i18n="retranslate"></button>
       </div>
       <div class="photo-translations" data-write-out></div>
@@ -119,12 +118,19 @@ function mountWriteTool(root: HTMLElement): () => void {
       if (mine === token) out.innerHTML = "";
     }
   };
+  // The pad's one Clear also empties the text and the translations.
+  const onReset = () => {
+    token += 1;
+    textBox.value = "";
+    out.innerHTML = "";
+  };
   const panel = mountWritePanel(root.querySelector("[data-write-host]") as HTMLElement, {
     lang: () => lang,
     onText: (text) => {
       textBox.value = textBox.value.trim() ? `${textBox.value.trim()} ${text}` : text;
       void translateNow();
     },
+    onClear: onReset,
   });
   const onLang = (event: Event) => {
     const next = (event.target as HTMLElement).closest<HTMLElement>("[data-write-lang-id]")?.dataset.writeLangId;
@@ -134,16 +140,9 @@ function mountWriteTool(root: HTMLElement): () => void {
     panel.redraw();
   };
   const onTranslate = () => void translateNow();
-  const onReset = () => {
-    textBox.value = "";
-    out.innerHTML = "";
-    panel.clear();
-  };
   const translateBtn = root.querySelector("[data-write-translate]") as HTMLButtonElement;
-  const resetBtn = root.querySelector("[data-write-reset]") as HTMLButtonElement;
   langBox.addEventListener("click", onLang);
   translateBtn.addEventListener("click", onTranslate);
-  resetBtn.addEventListener("click", onReset);
   const onResize = () => panel.redraw();
   window.addEventListener("resize", onResize);
   const unbindHome = bindHome(root);
@@ -152,7 +151,6 @@ function mountWriteTool(root: HTMLElement): () => void {
   return () => {
     langBox.removeEventListener("click", onLang);
     translateBtn.removeEventListener("click", onTranslate);
-    resetBtn.removeEventListener("click", onReset);
     window.removeEventListener("resize", onResize);
     panel.destroy();
     unbindHome();
@@ -243,7 +241,7 @@ function mountTalkTool(root: HTMLElement): () => void {
     for (const btn of whoBox.querySelectorAll<HTMLButtonElement>("[data-talk-who-lang]")) {
       const lang = btn.dataset.talkWhoLang === "a" ? langA : langB;
       btn.hidden = !on;
-      btn.textContent = `🎤 ${LANG_SHORT[lang]}`;
+      btn.textContent = `🎤 ${LANG_LABEL[lang]}`;
       btn.setAttribute("aria-label", t("talkListening", { lang: LANG_LABEL[lang] }));
       const active = turns?.listening === lang;
       btn.classList.toggle("active", active);
@@ -275,7 +273,7 @@ function mountTalkTool(root: HTMLElement): () => void {
     log.scrollTop = log.scrollHeight;
     for (const btn of foot.querySelectorAll<HTMLButtonElement>("[data-talk-expand]")) {
       const lang = btn.dataset.talkExpand === "a" ? langA : langB;
-      btn.textContent = `⤢ ${LANG_SHORT[lang]}`;
+      btn.textContent = `⤢ ${LANG_LABEL[lang]}`;
       btn.setAttribute("aria-label", t("talkExpand", { lang: LANG_LABEL[lang] }));
       btn.hidden = lines.length === 0;
     }
@@ -283,7 +281,7 @@ function mountTalkTool(root: HTMLElement): () => void {
     full.hidden = expanded === null;
     screenEl.classList.toggle("talk-expanded", expanded !== null);
     if (expanded) {
-      fullTitle.textContent = `${LANG_SHORT[expanded]} · ${LANG_LABEL[expanded]}`;
+      fullTitle.textContent = LANG_LABEL[expanded];
       fullStatus.textContent = status;
       const rows = captionsIn(lines, expanded).map(
         (row) =>

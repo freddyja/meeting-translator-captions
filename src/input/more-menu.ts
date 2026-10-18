@@ -80,6 +80,9 @@ export function mountMoreMenu(options: MoreMenuOptions): () => void {
         onText: (text) => {
           writeResult.value = writeResult.value ? `${writeResult.value} ${text}` : text;
         },
+        onClear: () => {
+          writeResult.value = "";
+        },
       });
       requestAnimationFrame(() => write?.redraw());
     } else {

@@ -6,7 +6,7 @@
   --accent-dim: rgba(43, 179, 163, 0.18);
   --gold: #7fd1c7;
   --cream: #e7f4f2;
-  --muted: #8aa3a8;
+  --muted: #d2e2e4;
   --line: #24383c;
   --danger: #d35c4a;
   --ok: #7cb389;
@@ -111,7 +111,7 @@ button, input, select, textarea {
 
 .brand-text .brand-credit {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   font-weight: 400;
   letter-spacing: 0.01em;
   line-height: 1.35;
@@ -119,7 +119,7 @@ button, input, select, textarea {
 }
 
 .brand-compact .brand-text .brand-credit {
-  font-size: 0.7rem;
+  font-size: 0.875rem;
 }
 
 .credit-footer {
@@ -129,7 +129,7 @@ button, input, select, textarea {
   padding: 0.65rem 0 0.15rem;
   text-align: center;
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: 0.875rem;
   font-weight: 400;
   letter-spacing: 0.06em;
   line-height: 1.3;
@@ -140,7 +140,7 @@ button, input, select, textarea {
 
 .tv-screen > .credit-footer {
   padding: 0.2rem 0 0;
-  font-size: 0.65rem;
+  font-size: 0.875rem;
 }
 
 .smart-view-dock .credit-footer {
@@ -200,7 +200,7 @@ button, input, select, textarea {
 
 .field span {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -392,7 +392,7 @@ button, input, select, textarea {
   color: var(--pane-accent);
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   font-weight: 700;
   line-height: 1.25;
 }
@@ -433,7 +433,7 @@ button, input, select, textarea {
   background: var(--pane-ink);
   color: var(--pane-bg);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   font-weight: 700;
   white-space: nowrap;
   box-shadow: var(--shadow);
@@ -561,7 +561,7 @@ button, input, select, textarea {
   flex-direction: column;
   align-items: flex-end;
   gap: 0.45rem;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   color: var(--muted);
 }
 
@@ -593,7 +593,7 @@ button, input, select, textarea {
 .mic small {
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  font-size: 0.78rem;
+  font-size: 0.875rem;
 }
 
 .mic.hot {
@@ -646,7 +646,7 @@ button, input, select, textarea {
 .join-room {
   margin: 0;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   letter-spacing: 0.04em;
 }
 
@@ -666,7 +666,7 @@ button, input, select, textarea {
   margin: 0 0 0.35rem;
   padding: 0;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: 0.12em;
   line-height: 1.2;
@@ -711,7 +711,7 @@ button, input, select, textarea {
 }
 
 .join-setup .watch-scope {
-  font-size: 0.68rem;
+  font-size: 0.875rem;
   letter-spacing: 0.02em;
   opacity: 0.88;
 }
@@ -771,7 +771,7 @@ button, input, select, textarea {
   display: grid;
   gap: 0.3rem;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -949,7 +949,7 @@ button, input, select, textarea {
   }
 
   .join-screen .brand-text .brand-credit {
-    font-size: 0.68rem;
+    font-size: 0.875rem;
     line-height: 1.25;
   }
 
@@ -959,7 +959,7 @@ button, input, select, textarea {
     min-width: 0;
     justify-content: flex-end;
     gap: 0.3rem;
-    font-size: 0.75rem;
+    font-size: 0.875rem;
   }
 
   .join-screen .room-pill,
@@ -980,7 +980,7 @@ button, input, select, textarea {
   }
 
   .join-screen .floor-banner {
-    font-size: 0.78rem;
+    font-size: 0.875rem;
   }
 
   .join-screen .window {
@@ -991,7 +991,7 @@ button, input, select, textarea {
 
   .join-screen .window-label {
     margin-bottom: 0.12rem;
-    font-size: 0.68rem;
+    font-size: 0.875rem;
   }
 
   .join-screen .tv-board .line,
@@ -1017,7 +1017,7 @@ button, input, select, textarea {
   }
 
   .join-screen .smart-view-tip {
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     line-height: 1.25;
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -1052,7 +1052,7 @@ button, input, select, textarea {
   }
 
   .join-dock .credit-footer {
-    font-size: 0.62rem;
+    font-size: 0.875rem;
     padding-top: 0;
   }
 }
@@ -1101,7 +1101,7 @@ button, input, select, textarea {
 
   .join-screen .floor-banner {
     -webkit-line-clamp: 1;
-    font-size: 0.72rem;
+    font-size: 0.875rem;
     min-height: 0;
   }
 
@@ -1131,7 +1131,7 @@ button, input, select, textarea {
 
   .join-screen .window-label {
     margin-bottom: 0;
-    font-size: 0.62rem;
+    font-size: 0.875rem;
   }
 }
 
@@ -1204,11 +1204,11 @@ button, input, select, textarea {
 }
 
 .join-dock .watch-name {
-  font-size: 0.78rem;
+  font-size: 0.875rem;
 }
 
 .join-dock .watch-scope {
-  font-size: 0.62rem;
+  font-size: 0.875rem;
   letter-spacing: 0.01em;
   opacity: 0.88;
 }
@@ -1272,7 +1272,7 @@ button, input, select, textarea {
 .control-label {
   margin: 0 0 0.5rem;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   display: flex;
@@ -1306,7 +1306,7 @@ button, input, select, textarea {
 .ui-lang .control-label {
   margin-bottom: 0;
   color: var(--cream);
-  font-size: 0.82rem;
+  font-size: 0.875rem;
 }
 
 .ui-lang .chips {
@@ -1335,7 +1335,7 @@ button, input, select, textarea {
 }
 
 .ui-lang-entry .control-label {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }
 
 .ui-lang-entry .chip {
@@ -1759,7 +1759,7 @@ button, input, select, textarea {
 
 .phone-live-board .window-label {
   margin-bottom: 0.28rem;
-  font-size: 0.74rem;
+  font-size: 0.875rem;
 }
 
 .phone-live-board .line, .phone-live-board .empty-caption {
@@ -1849,7 +1849,7 @@ button, input, select, textarea {
 .send-tv-url {
   margin: 0;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   line-height: 1.35;
   overflow-wrap: anywhere;
   word-break: break-all;
@@ -1929,7 +1929,7 @@ button, input, select, textarea {
 .send-tv-lang-url {
   margin: 0;
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: 0.875rem;
   line-height: 1.3;
   overflow-wrap: anywhere;
   word-break: break-all;
@@ -2030,7 +2030,7 @@ button, input, select, textarea {
 .smart-view-tip {
   margin: 0;
   color: var(--gold);
-  font-size: 0.86rem;
+  font-size: 0.875rem;
   line-height: 1.35;
   text-align: center;
 }
@@ -2052,7 +2052,7 @@ button, input, select, textarea {
 
 .smart-view-source-label {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2096,7 +2096,7 @@ button, input, select, textarea {
 .smart-view-mic small {
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }
 
 .smart-view-mic.hot {
@@ -2232,7 +2232,7 @@ button, input, select, textarea {
 
   .phone-screen.is-smart-view .window-label {
     margin-bottom: 0.28rem;
-    font-size: 0.68rem;
+    font-size: 0.875rem;
   }
 
   .phone-screen.is-smart-view .tv-board[data-count="2"] .line, .phone-screen.is-smart-view .tv-board[data-count="3"] .line {
@@ -2326,7 +2326,7 @@ button, input, select, textarea {
   }
 
   .phone-screen:not(.is-smart-view) .brand-text .brand-credit {
-    font-size: 0.72rem;
+    font-size: 0.875rem;
     letter-spacing: 0.01em;
   }
 
@@ -2335,7 +2335,7 @@ button, input, select, textarea {
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 0.3rem;
-    font-size: 0.75rem;
+    font-size: 0.875rem;
   }
 
   .phone-screen:not(.is-smart-view) .phone-body {
@@ -2392,7 +2392,7 @@ button, input, select, textarea {
 
   .phone-screen:not(.is-smart-view) .phone-live-board .window-label {
     margin-bottom: 0.2rem;
-    font-size: 0.72rem;
+    font-size: 0.875rem;
   }
 
   .phone-screen:not(.is-smart-view) .phone-live-board .line,
@@ -2436,7 +2436,7 @@ button, input, select, textarea {
 
   .phone-screen:not(.is-smart-view) > .credit-footer {
     padding: 0.15rem 0 0;
-    font-size: 0.62rem;
+    font-size: 0.875rem;
   }
 
   .phone-screen .mic-chrome-hint {
@@ -2505,7 +2505,7 @@ button, input, select, textarea {
   }
 
   .phone-screen:not(.is-smart-view) .brand-text .brand-credit {
-    font-size: 0.65rem;
+    font-size: 0.875rem;
     letter-spacing: 0.01em;
     line-height: 1.25;
   }
@@ -2515,7 +2515,7 @@ button, input, select, textarea {
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 0.25rem;
-    font-size: 0.72rem;
+    font-size: 0.875rem;
   }
 
   .phone-screen:not(.is-smart-view) .phone-body {
@@ -2585,7 +2585,7 @@ button, input, select, textarea {
 
   .phone-screen:not(.is-smart-view) .phone-live-board .line,
   .phone-screen:not(.is-smart-view) .phone-live-board .empty-caption {
-    font-size: clamp(0.85rem, 2.2vw, 1.25rem);
+    font-size: clamp(0.9rem, 2.2vw, 1.25rem);
   }
 
   .phone-screen:not(.is-smart-view) .phone-live-board .line-speaker {
@@ -2618,7 +2618,7 @@ button, input, select, textarea {
 
   .phone-screen:not(.is-smart-view) > .credit-footer {
     padding: 0.1rem 0 0;
-    font-size: 0.62rem;
+    font-size: 0.875rem;
   }
 }
 
@@ -2890,7 +2890,7 @@ button, input, select, textarea {
 }
 .tool-tile small {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   line-height: 1.3;
 }
 .tool-screen {
@@ -2944,7 +2944,7 @@ button, input, select, textarea {
 [data-tool="talk"] .tool-back {
   min-height: 36px;
   padding: 0.2rem 0.6rem;
-  font-size: 0.82rem;
+  font-size: 0.875rem;
 }
 [data-tool="talk"] .tool-title {
   margin: 0;
@@ -2966,7 +2966,7 @@ button, input, select, textarea {
 .talk-person-label {
   margin: 0 0 0.2rem;
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 0.875rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -2980,11 +2980,11 @@ button, input, select, textarea {
   min-width: 0;
   min-height: 36px;
   padding: 0.15rem 0.35rem;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
 }
 .talk-hint {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   line-height: 1.3;
 }
 .talk-controls {
@@ -3007,7 +3007,7 @@ button, input, select, textarea {
 .talk-who-btn {
   min-height: 40px;
   padding: 0.2rem 0.6rem;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
 }
 .talk-start {
   min-height: 44px;
@@ -3019,7 +3019,7 @@ button, input, select, textarea {
 .talk-status {
   margin: 0;
   min-height: 1.1em;
-  font-size: 0.78rem;
+  font-size: 0.875rem;
 }
 .talk-log {
   flex: 1 1 auto;
@@ -3068,7 +3068,7 @@ button.talk-line:focus-visible {
   position: absolute;
   top: 0.3rem;
   right: 0.45rem;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   opacity: 0.6;
 }
 /* ~1.4–1.6x the old 18.4px dialogue, capped for wide/short screens. */
@@ -3086,7 +3086,7 @@ button.talk-line:focus-visible {
 }
 .talk-code {
   margin-right: 0.3rem;
-  font-size: 0.7rem;
+  font-size: 0.875rem;
   letter-spacing: 0.1em;
 }
 .talk-foot {
@@ -3097,7 +3097,7 @@ button.talk-line:focus-visible {
 .talk-foot .ghost {
   min-height: 36px;
   padding: 0.2rem 0.6rem;
-  font-size: 0.82rem;
+  font-size: 0.875rem;
 }
 /* Expanded: one language, full screen, live. */
 .entry-scene[data-tool="talk"] > .talk-full[hidden] {
@@ -3138,7 +3138,7 @@ button.talk-line:focus-visible {
 .talk-full-status {
   flex: 1 1 auto;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
 }
 .talk-full-back {
   min-height: 44px;
@@ -3502,4 +3502,667 @@ button.talk-line:focus-visible {
   .tour-dots span {
     transition: none;
   }
+}
+
+/* ==========================================================================
+   Simplify pass for non-technical users (bigger, higher-contrast, fewer
+   controls). Scoped under #app so it wins over the older layered rules
+   without !important. TV caption panes (.tv-board / .window / .line) are not
+   restyled here.
+   ========================================================================== */
+#app {
+  --ux-ink: #f6fffd;
+  --ux-sub: #e4f1ef;
+  --ux-primary: #0f7a6b;
+  --ux-primary-hi: #12917f;
+  --ux-danger: #c93c3f;
+  --ux-edge: rgba(170, 236, 226, 0.7);
+}
+
+/* Readable text everywhere: nothing under ~14px, no grey on dark. */
+#app .hint,
+#app .send-tv-steps,
+#app .send-tv-url,
+#app .install-steps,
+#app .field span {
+  color: var(--ux-sub);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+#app .control-label,
+#app .join-setup-q legend {
+  color: var(--ux-ink);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+#app .credit-footer {
+  opacity: 0.9;
+  color: var(--ux-sub);
+}
+#app .brand-credit {
+  color: var(--ux-sub);
+  opacity: 1;
+}
+#app .room-pill,
+#app .status-pill {
+  color: var(--ux-ink);
+  font-size: 0.95rem;
+}
+
+/* Buttons: one clear look for primary / secondary, 48px+ targets. */
+#app .primary {
+  background: var(--ux-primary);
+  color: #fff;
+  border: 2px solid var(--ux-primary-hi);
+  font-weight: 800;
+  font-size: 1.05rem;
+  min-height: 52px;
+}
+#app .secondary {
+  background: rgba(10, 24, 28, 0.92);
+  border: 2px solid var(--ux-edge);
+  color: var(--ux-ink);
+  font-weight: 700;
+  font-size: 1rem;
+  min-height: 48px;
+}
+#app .ghost {
+  color: var(--ux-ink);
+  font-size: 1rem;
+}
+#app .chip {
+  min-height: 44px;
+  font-size: 1rem;
+  color: var(--ux-ink);
+  border-width: 2px;
+}
+#app .chip.active {
+  background: var(--ux-primary);
+  border-color: #9ff0e3;
+  color: #fff;
+}
+#app .big-action {
+  width: 100%;
+  min-height: 64px;
+  border-radius: 16px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+#app .danger,
+#app .primary.danger {
+  background: var(--ux-danger);
+  border-color: #ff9a98;
+  color: #fff;
+}
+#app .leave-btn {
+  border-color: #ff9a98;
+  color: #fff;
+}
+#app .help-btn,
+#app .leave-btn {
+  min-height: 44px;
+  padding: 0 0.85rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* Disclosures (Settings, Advanced, More TV options). */
+#app details > summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ux-ink);
+  cursor: pointer;
+}
+
+/* ---------- Front screen ---------- */
+#app .home-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0.4rem 0 0.2rem;
+}
+#app .home-actions .big-action {
+  min-height: 72px;
+  padding: 0.5rem 0.6rem;
+  line-height: 1.15;
+}
+#app .home-join-btn {
+  background: #f6fffd;
+  color: #07302a;
+  border-color: #f6fffd;
+}
+#app .home-join-btn.active {
+  outline: 3px solid #9ff0e3;
+  outline-offset: 2px;
+}
+#app .home-code[hidden] {
+  display: none;
+}
+#app .home-code {
+  display: grid;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.9rem;
+  border: 2px solid var(--ux-edge);
+  border-radius: 16px;
+  background: rgba(8, 18, 22, 0.9);
+}
+#app .home-code input {
+  font-size: 1.6rem;
+  text-align: center;
+  color: var(--ux-ink);
+}
+#app .home-help {
+  justify-content: center;
+}
+#app .help-link {
+  text-decoration: none;
+  padding: 0 1.2rem;
+}
+#app .home-settings {
+  width: 100%;
+}
+#app .haptics-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 48px;
+  font-size: 1rem;
+  color: var(--ux-ink);
+}
+#app .haptics-toggle[hidden] {
+  display: none;
+}
+#app .tool-tile small {
+  color: var(--ux-sub);
+  font-size: 0.9rem;
+}
+
+/* Install card: in the page flow, never on top of controls. */
+#app .a2hs-banner {
+  position: static;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  width: 100%;
+  margin: 1rem auto 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+/* ---------- PIN ---------- */
+#app .pin-title {
+  font-size: 1.5rem;
+  color: #fff;
+}
+#app .pin-ask {
+  margin: 0.2rem 0 0.3rem;
+  text-align: center;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #fff;
+}
+#app .pin-help {
+  color: var(--ux-sub);
+  font-size: 1rem;
+}
+#app .pin-box {
+  background: #fff;
+  color: #07302a;
+  border: 3px solid #9ff0e3;
+  font-size: 2rem;
+  font-weight: 800;
+}
+#app .pin-box.filled {
+  background: #dffcf6;
+  border-color: var(--ux-primary-hi);
+}
+#app .pin-key {
+  background: #f6fffd;
+  color: #07302a;
+  border: 2px solid #f6fffd;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+#app .pin-key-alt {
+  background: #12262a;
+  color: #fff;
+  border: 2px solid #9ff0e3;
+  font-size: 1.1rem;
+}
+#app .pin-msg {
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+/* ---------- One-speaker banner (host + guest) ---------- */
+#app .floor-banner {
+  margin: 0.4rem 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 14px;
+  border: 2px solid rgba(159, 240, 227, 0.6);
+  background: rgba(15, 122, 107, 0.28);
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+}
+#app .floor-banner:empty {
+  display: none;
+}
+#app .floor-banner[data-state="busy"] {
+  background: rgba(201, 60, 63, 0.35);
+  border-color: #ff9a98;
+}
+#app .floor-banner[data-state="you"] {
+  background: rgba(201, 60, 63, 0.5);
+  border-color: #ffb3b1;
+}
+#app .floor-banner[data-state="down"] {
+  background: rgba(150, 110, 20, 0.4);
+  border-color: #ffd98a;
+}
+
+/* ---------- The one big mic button ---------- */
+#app .mic.mic-big {
+  width: 100%;
+  max-width: 26rem;
+  height: auto;
+  min-height: 84px;
+  border-radius: 999px;
+  border: 3px solid #9ff0e3;
+  background: var(--ux-primary);
+  color: #fff;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: none;
+}
+#app .mic.mic-big.hot {
+  background: var(--ux-danger);
+  border-color: #ffb3b1;
+  animation: pulse 1.4s ease-out infinite;
+}
+#app .mic.mic-big:disabled {
+  background: #1d2f33;
+  border-color: #ffd98a;
+  color: #fff;
+  opacity: 1;
+}
+#app .mic-big-label {
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+}
+#app .spoken-now {
+  min-height: 40px;
+  padding: 0.2rem 0.6rem;
+  font-size: 1rem;
+  color: var(--ux-ink);
+}
+
+/* ---------- Host screen ---------- */
+#app .ux-host .host-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+#app .ux-host .host-top .brand-credit {
+  display: none;
+}
+#app .host-top-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex: none;
+}
+#app .host-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.45rem;
+  margin: 0.55rem 0 0.2rem;
+}
+#app .ux-host .mic-wrap {
+  margin: 0.4rem 0 0.6rem;
+  gap: 0.3rem;
+}
+#app .host-main-actions {
+  display: grid;
+  gap: 0.7rem;
+}
+#app .host-main-actions .send-tv-btn {
+  background: #f6fffd;
+  color: #07302a;
+  border-color: #f6fffd;
+}
+#app .host-secondary-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+#app .host-secondary-actions [hidden] {
+  display: none;
+}
+#app .host-secondary-actions:has(.type-toggle[hidden]) {
+  grid-template-columns: 1fr;
+}
+#app .type-area[hidden] {
+  display: none;
+}
+#app .type-area {
+  margin-top: 0.7rem;
+  display: grid;
+  gap: 0.4rem;
+}
+#app .ux-host .phone-live-board {
+  min-height: 9rem;
+}
+
+/* Settings drawer */
+#app .settings-dialog .send-tv-sheet {
+  gap: 0.4rem;
+}
+#app .settings-group {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+}
+#app .settings-group .chips {
+  flex-wrap: wrap;
+}
+#app .settings-buttons {
+  grid-template-columns: 1fr;
+}
+#app .settings-advanced {
+  margin-top: 0.6rem;
+  border-top: 1px solid rgba(231, 244, 242, 0.25);
+  padding-top: 0.3rem;
+}
+#app .settings-advanced[open] {
+  display: grid;
+  gap: 0.5rem;
+}
+
+/* Send to TV / Join QR */
+#app .send-tv-qr-big svg {
+  width: min(70vw, 17rem);
+}
+#app .send-tv-share {
+  margin-top: 0.2rem;
+}
+#app .more-tv-options {
+  border-top: 1px solid rgba(231, 244, 242, 0.25);
+  padding-top: 0.3rem;
+}
+#app .more-tv-options[open] {
+  display: grid;
+  gap: 0.7rem;
+}
+#app .more-tv-options .row-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+#app .join-room-big {
+  margin: 0;
+  text-align: center;
+  font-size: 1.1rem;
+  color: var(--ux-ink);
+}
+#app .join-room-big strong {
+  display: block;
+  font-size: 2.2rem;
+  letter-spacing: 0.25em;
+}
+#app .send-tv-head h2 {
+  font-size: 1.5rem;
+}
+
+/* Confirm sheet */
+#app .confirm-sheet {
+  text-align: center;
+  gap: 0.8rem;
+}
+#app .confirm-sheet h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+#app .confirm-body {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--ux-sub);
+}
+#app .confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+}
+
+/* ---------- Guest ---------- */
+#app .setup-top {
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+}
+#app .setup-leave {
+  min-height: 44px;
+  padding: 0 0.9rem;
+  border-radius: 999px;
+}
+#app .join-setup-go {
+  min-height: 64px;
+  font-size: 1.25rem;
+  margin-top: 0.6rem;
+}
+#app .join-prefs-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem 0.4rem 0.8rem;
+  border: 2px solid rgba(231, 244, 242, 0.25);
+  border-radius: 14px;
+  background: rgba(8, 18, 22, 0.85);
+}
+#app .join-prefs-summary {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ux-ink);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#app .join-prefs-toggle {
+  min-height: 40px;
+  padding: 0 0.95rem;
+  border-radius: 999px;
+  flex: none;
+}
+#app .join-prefs-panel[hidden] {
+  display: none;
+}
+#app .join-prefs-panel {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+#app .join-screen .smart-view-tip:empty {
+  display: none;
+}
+#app .join-actions {
+  display: flex;
+  justify-content: center;
+  margin: 0.5rem 0 0.2rem;
+}
+#app .ux-guest .tv-meta {
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* ---------- Walkthrough: bigger text, real buttons ---------- */
+#app .tour-card h2 {
+  font-size: 1.6rem;
+}
+#app .tour-card p {
+  font-size: 1.2rem;
+  line-height: 1.5;
+  color: var(--ux-ink);
+}
+#app .tour-nav button {
+  min-height: 54px;
+  min-width: 7.5rem;
+  font-size: 1.15rem;
+  text-decoration: none;
+}
+#app .tour-nav [data-tour-back]:disabled {
+  visibility: hidden;
+}
+#app .tour-skip {
+  min-height: 44px;
+  padding: 0 1rem;
+  border-radius: 999px;
+  text-decoration: none;
+}
+#app .tour-dots span {
+  background: rgba(231, 244, 242, 0.55);
+}
+
+/* ---------- Tools ---------- */
+#app .write-pad-wrap {
+  position: relative;
+}
+#app .write-here {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: rgba(246, 255, 253, 0.8);
+  pointer-events: none;
+}
+#app .write-here[hidden],
+#app .write-warning[hidden] {
+  display: none;
+}
+#app .photo-reads {
+  margin: 0.2rem 0 0.4rem;
+  font-size: 1rem;
+  color: var(--ux-ink);
+}
+
+/* ---------- TV: Leave stays clear of the language chips ---------- */
+#app .tv-screen .leave-btn {
+  margin-left: 0.4rem;
+}
+
+/* Host on a phone: the three main controls come first, captions under them. */
+#app .ux-host .phone-caption-preview[hidden],
+#app [data-lang-pill][hidden] {
+  display: none;
+}
+@media (max-width: 899px) {
+  #app .ux-host:not(.is-smart-view) .phone-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+  #app .ux-host:not(.is-smart-view) .phone-side {
+    order: -1;
+    border-top: 0;
+    padding-top: 0;
+  }
+  #app .ux-host .host-main-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+  #app .ux-host .host-main-actions .big-action {
+    min-height: 68px;
+    font-size: 1.1rem;
+    line-height: 1.15;
+    padding: 0.4rem 0.5rem;
+  }
+}
+#app .a2hs-banner {
+  position: relative;
+}
+#app .ux-host .mic-wrap .hint:empty {
+  display: none;
+}
+#app .join-name span {
+  color: var(--ux-ink);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+#app .home-code,
+#app .home-code .field,
+#app .home-code input {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+#app .home-code input {
+  width: 100%;
+}
+#app .join-screen .smart-view-tip {
+  color: var(--ux-ink);
+  font-size: 0.95rem;
+}
+/* Two-person page: full language names, one person per row. */
+#app .talk-pick {
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+#app .talk-person-label {
+  color: var(--ux-ink);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+#app .talk-chips .chip {
+  min-height: 44px;
+  font-size: 1rem;
+  padding: 0.2rem 0.4rem;
+}
+/* Host top bar: let the buttons drop to their own row when the label is long (ES/PT). */
+#app .host-top {
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+}
+#app .host-top-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-left: auto;
+  justify-content: flex-end;
+  max-width: 100%;
+}
+#app .host-top > :first-child {
+  flex: 0 0 auto;
+}
+#app .host-top-actions {
+  flex: 0 1 auto;
 }

@@ -104,13 +104,22 @@ export async function authFetch(input: string, init: RequestInit = {}): Promise<
 
 export type AuthStatus = { required: boolean; ok: boolean };
 
+let lastStatus: AuthStatus | null = null;
+
+/** True when this device already entered the PIN, or the server has no PIN. Used to skip the walkthrough's PIN card. */
+export function pinHandled(): boolean {
+  if (readToken()) return true;
+  return lastStatus !== null && (!lastStatus.required || lastStatus.ok);
+}
+
 /** null when the server could not be reached (offline): let the app try anyway. */
 export async function checkAuth(signal?: AbortSignal): Promise<AuthStatus | null> {
   try {
     const res = await fetch("/api/auth", { headers: authHeaders(), cache: "no-store", signal });
     if (!res.ok) return null;
     const body = (await res.json()) as Partial<AuthStatus>;
-    return { required: body.required === true, ok: body.ok === true };
+    lastStatus = { required: body.required === true, ok: body.ok === true };
+    return lastStatus;
   } catch {
     return null;
   }

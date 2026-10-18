@@ -1,12 +1,16 @@
 import { applyI18n, subscribeUiLang, t, type MessageKey } from "../i18n";
 import { canPromptInstall, isStandaloneDisplay, promptInstall, subscribeInstall } from "../install";
+import { pinHandled } from "../auth";
 import {
   INSTALL_DISMISSED_KEY,
   installPlatform,
+  MEETING_USED_KEY,
   readFlag,
   shouldShowInstallBanner,
   TOUR_DONE_KEY,
+  tourCards,
   writeFlag,
+  type TourCardId,
 } from "../onboarding";
 import { isAppleMobile } from "../stt/capability";
 
@@ -30,7 +34,10 @@ const IOS_ILLUSTRATION = `
   <path d="M192 11v8M188 15h8" stroke="#1d3035" stroke-width="2" stroke-linecap="round"/>
 </svg>`;
 
-/** Bottom sheet on the front screen only. Returns a cleanup. */
+/**
+ * Install card on the front screen only, and only after a meeting was used once.
+ * It sits in the page flow at the bottom (not fixed), so it never covers a control.
+ */
 export function mountInstallBanner(host: HTMLElement, isTourOpen: () => boolean): () => void {
   const el = document.createElement("aside");
   el.className = "a2hs-banner";
@@ -46,6 +53,7 @@ export function mountInstallBanner(host: HTMLElement, isTourOpen: () => boolean)
       dismissed: readFlag(INSTALL_DISMISSED_KEY),
       platform,
       tourOpen: isTourOpen(),
+      meetingUsed: readFlag(MEETING_USED_KEY),
     });
     el.hidden = !show;
     if (!show) return;
@@ -96,15 +104,25 @@ export function mountInstallBanner(host: HTMLElement, isTourOpen: () => boolean)
   };
 }
 
-const CARDS: { icon: string; title: MessageKey; body: MessageKey }[] = [
-  { icon: "💬", title: "tour1Title", body: "tour1Body" },
-  { icon: "📱", title: "tour2Title", body: "tour2Body" },
-  { icon: "🔢", title: "tour3Title", body: "tour3Body" },
-  { icon: "📺", title: "tour4Title", body: "tour4Body" },
-];
+const CARD_COPY: Record<TourCardId, { icon: string; title: MessageKey; body: MessageKey }> = {
+  captions: { icon: "💬", title: "tour1Title", body: "tour1Body" },
+  create: { icon: "📱", title: "tour2Title", body: "tour2Body" },
+  pin: { icon: "🔢", title: "tour3Title", body: "tour3Body" },
+  tv: { icon: "📺", title: "tour4Title", body: "tour4Body" },
+};
 
-/** Swipeable 4-card walkthrough. Marks itself done on Skip or Get started. */
+/** Remember that this device has been in a live meeting (unlocks the install card). */
+export function markMeetingUsed(): void {
+  writeFlag(MEETING_USED_KEY);
+}
+
+/**
+ * Swipeable walkthrough. Marks itself done on Skip or Get started. The PIN card
+ * is left out when this device already entered the PIN (or there is none).
+ * Opened on first run from the front screen, and any time from ? Help.
+ */
 export function openTour(host: HTMLElement, onClose: () => void): () => void {
+  const CARDS = tourCards({ pinHandled: pinHandled() }).map((id) => CARD_COPY[id]);
   const el = document.createElement("div");
   el.className = "tour";
   el.setAttribute("data-tour", "");
@@ -112,7 +130,7 @@ export function openTour(host: HTMLElement, onClose: () => void): () => void {
   el.setAttribute("aria-modal", "true");
   el.innerHTML = `
     <div class="tour-sheet">
-      <button class="ghost tour-skip" type="button" data-tour-skip data-i18n="tourSkip"></button>
+      <button class="secondary tour-skip" type="button" data-tour-skip data-i18n="tourSkip"></button>
       <div class="tour-track" data-tour-track>
         ${CARDS.map(
           (c, i) => `
@@ -125,7 +143,7 @@ export function openTour(host: HTMLElement, onClose: () => void): () => void {
       </div>
       <div class="tour-dots" data-tour-dots>${CARDS.map((_, i) => `<span data-dot="${i}"></span>`).join("")}</div>
       <div class="tour-nav">
-        <button class="ghost" type="button" data-tour-back data-i18n="tourBack"></button>
+        <button class="secondary" type="button" data-tour-back data-i18n="tourBack"></button>
         <button class="primary" type="button" data-tour-next data-haptic></button>
       </div>
     </div>`;
@@ -143,7 +161,7 @@ export function openTour(host: HTMLElement, onClose: () => void): () => void {
       c.setAttribute("aria-label", t("tourStep", { n: i + 1, total: CARDS.length }));
       c.setAttribute("aria-hidden", String(i !== index));
     });
-    back.style.visibility = index === 0 ? "hidden" : "visible";
+    back.disabled = index === 0;
     next.textContent = index === CARDS.length - 1 ? t("tourDone") : t("tourNext");
   };
   const go = (i: number) => {

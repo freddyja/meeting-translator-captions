@@ -23,6 +23,7 @@ export function photoPanelHtml(withPost: boolean): string {
   return `
     <p class="control-label" data-i18n="photoTextLang"></p>
     <div class="chips" data-photo-langs role="group" data-i18n-aria="photoTextLang"></div>
+    <p class="photo-reads" data-photo-reads></p>
     <div class="row-actions photo-pick">
       <label class="primary photo-pick-btn"><span data-i18n="takePhoto"></span><input data-photo-camera type="file" accept="image/*" capture="environment" hidden /></label>
       <label class="secondary photo-pick-btn"><span data-i18n="uploadPhoto"></span><input data-photo-file type="file" accept="image/*" hidden /></label>
@@ -82,6 +83,7 @@ export function mountPhotoPanel(container: HTMLElement, options: PhotoPanelOptio
   const resultBox = q<HTMLElement>("[data-photo-result]");
   const textBox = q<HTMLTextAreaElement>("[data-photo-text]");
   const translations = q<HTMLElement>("[data-photo-translations]");
+  const reads = q<HTMLElement>("[data-photo-reads]");
   let photoLang: OcrChoice = options.lang();
   let previewUrl = "";
   let runToken = 0;
@@ -90,11 +92,13 @@ export function mountPhotoPanel(container: HTMLElement, options: PhotoPanelOptio
     const choices: OcrChoice[] = [...LANGS, "auto"];
     langBox.innerHTML = choices
       .map((choice) => {
-        const label = choice === "auto" ? t("photoAuto") : `${LANG_SHORT[choice]} ${LANG_LABEL[choice]}`;
+        const label = choice === "auto" ? t("photoAuto") : LANG_LABEL[choice];
         const on = choice === photoLang;
         return `<button class="chip${on ? " active" : ""}" type="button" data-photo-lang="${choice}" aria-pressed="${on}">${escapeHtml(label)}</button>`;
       })
       .join("");
+    reads.textContent =
+      photoLang === "auto" ? t("photoReadsAuto") : t("photoReadsIn", { lang: LANG_LABEL[photoLang] });
   };
   const sourceFor = (text: string): Lang => (photoLang === "auto" ? detectLang(text, options.lang()) : photoLang);
 
