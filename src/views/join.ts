@@ -46,6 +46,7 @@ import {
   LANGS,
   isWatchLang,
   langsForWatch,
+  parseWatchLang,
   captionSpeakerName,
   sanitizePeerName,
   someoneElseSpeaking,
@@ -297,7 +298,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     }
     const canSwap = Boolean(swapGuestLangs(sourceLang, watchLang));
     swapBtn.disabled = !canSwap;
-    swapBtn.title = canSwap ? t("swapAria") : t("swapNeedsOne");
+    swapBtn.title = canSwap ? t("swapAria") : t("swapNeedsOneGuest");
     paintCaptionBoard(
       board,
       { layout: state.layout, lines: finalizedLines(state.lines), listening: state.listening, floor },
@@ -852,8 +853,8 @@ function writeGuestName(value: string) {
 
 function readWatchLang(): WatchLang {
   try {
-    const value = localStorage.getItem(WATCH_KEY);
-    return isWatchLang(value) ? value : "all";
+    // Old builds stored en/es/pt/all; those still parse. Pairs are en-es/en-pt/es-pt.
+    return parseWatchLang(localStorage.getItem(WATCH_KEY));
   } catch {
     return "all";
   }

@@ -688,8 +688,14 @@ button, input, select, textarea {
   font-size: 0.92rem;
 }
 
+/* Show captions in: three singles, three pairs (EN | ES …), then All three across. */
 .join-setup .join-setup-watch {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.join-setup .watch-chip.is-all,
+.join-dock .join-watch .watch-chip.is-all {
+  grid-column: 1 / -1;
 }
 
 .join-setup .watch-chip {
@@ -1177,7 +1183,7 @@ button, input, select, textarea {
 
 .join-watch .chips {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.35rem;
 }
 
@@ -1211,6 +1217,20 @@ button, input, select, textarea {
   font-size: 0.875rem;
   letter-spacing: 0.01em;
   opacity: 0.88;
+}
+
+/* A pair names two languages: let "English | Español" wrap onto two lines. */
+.join-setup .watch-chip.is-pair .watch-name,
+.join-dock .watch-chip.is-pair .watch-name {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+}
+
+.join-setup .watch-chip.is-pair .watch-name {
+  font-size: 0.92rem;
 }
 
 /* One Watch language fills the join caption area. All three keeps the shared board. */

@@ -1,5 +1,5 @@
 import { escapeHtml } from "./dom.ts";
-import { LANG_LABEL, type Lang } from "./types.ts";
+import { isWatchPair, LANG_LABEL, type Lang } from "./types.ts";
 
 /**
  * App language (was "Interface") — the labels on the screens. This is not
@@ -107,6 +107,7 @@ const en = {
   watchEsOnly: "Español only",
   watchPtOnly: "Português only",
   watchAllLabel: "All three languages",
+  watchPairLabel: "{a} and {b}",
   watchAria: "Show captions in {label}",
   start: "Start",
   stop: "Stop",
@@ -188,6 +189,7 @@ const en = {
   tour4Body: "Tap Send to TV to show big captions on a TV or laptop. No microphone? Type a message and tap Send — it reaches every phone and the TV.",
   swapAria: "Swap “I speak” and “Show captions in”",
   swapNeedsOne: "Pick one language under “Show captions in” (not all three) to swap.",
+  swapNeedsOneGuest: "Pick one language under “Show captions in” (not two, not all three) to swap.",
   writeBtn: "Write",
   writeTitle: "Write with your finger",
   writeHintNative: "Write a word or short phrase, then tap Recognize.",
@@ -408,6 +410,7 @@ const es: Catalog = {
   watchEsOnly: "Solo español",
   watchPtOnly: "Solo portugués",
   watchAllLabel: "Los tres idiomas",
+  watchPairLabel: "{a} y {b}",
   watchAria: "Mostrar subtítulos en {label}",
   start: "Iniciar",
   stop: "Detener",
@@ -489,6 +492,7 @@ const es: Catalog = {
   tour4Body: "Toca Enviar al TV para ver subtítulos grandes en un TV o portátil. ¿Sin micrófono? Escribe un mensaje y toca Enviar — llega a todos los teléfonos y al TV.",
   swapAria: "Intercambiar “Yo hablo” y “Mostrar subtítulos en”",
   swapNeedsOne: "Elige un solo idioma en “Mostrar subtítulos en” (no los tres) para intercambiar.",
+  swapNeedsOneGuest: "Elige un solo idioma en “Mostrar subtítulos en” (ni dos ni los tres) para intercambiar.",
   writeBtn: "Escribir",
   writeTitle: "Escribe con el dedo",
   writeHintNative: "Escribe una palabra o frase corta y toca Reconocer.",
@@ -705,6 +709,7 @@ const pt: Catalog = {
   watchEsOnly: "Só espanhol",
   watchPtOnly: "Só português",
   watchAllLabel: "Os três idiomas",
+  watchPairLabel: "{a} e {b}",
   watchAria: "Mostrar legendas em {label}",
   start: "Iniciar",
   stop: "Parar",
@@ -786,6 +791,7 @@ const pt: Catalog = {
   tour4Body: "Toque em Enviar para a TV para ver legendas grandes numa TV ou notebook. Sem microfone? Digite uma mensagem e toque em Enviar — chega a todos os telefones e à TV.",
   swapAria: "Trocar “Eu falo” e “Mostrar legendas em”",
   swapNeedsOne: "Escolha um só idioma em “Mostrar legendas em” (não os três) para trocar.",
+  swapNeedsOneGuest: "Escolha um só idioma em “Mostrar legendas em” (nem dois, nem os três) para trocar.",
   writeBtn: "Escrever",
   writeTitle: "Escreva com o dedo",
   writeHintNative: "Escreva uma palavra ou frase curta e toque em Reconhecer.",
@@ -1071,23 +1077,42 @@ export function bindUiLang(root: HTMLElement, onChange?: () => void): () => void
   };
 }
 
-const WATCH_IDS = ["en", "es", "pt", "all"] as const;
+/** Order on screen: the three single languages, the three pairs, then all three. */
+const WATCH_IDS = ["en", "es", "pt", "en-es", "en-pt", "es-pt", "all"] as const;
 export type WatchChipId = (typeof WATCH_IDS)[number];
 
-const WATCH_LABEL_KEY: Record<WatchChipId, MessageKey> = {
+const WATCH_SINGLE_KEY: Record<Lang, MessageKey> = {
   en: "watchEnOnly",
   es: "watchEsOnly",
   pt: "watchPtOnly",
-  all: "watchAllLabel",
 };
+
+/** Full language names for a Watch choice, e.g. "English | Español" for en-es. */
+export function watchName(id: WatchChipId): string {
+  if (id === "all") return t("watchAllName");
+  if (isWatchPair(id)) {
+    const [a, b] = id.split("-") as Lang[];
+    return `${LANG_LABEL[a]} | ${LANG_LABEL[b]}`;
+  }
+  return LANG_LABEL[id];
+}
+
+function watchLabel(id: WatchChipId): string {
+  if (id === "all") return t("watchAllLabel");
+  if (isWatchPair(id)) {
+    const [a, b] = id.split("-") as Lang[];
+    return t("watchPairLabel", { a: LANG_LABEL[a], b: LANG_LABEL[b] });
+  }
+  return t(WATCH_SINGLE_KEY[id]);
+}
 
 export function watchChipsHtml(attr: "data-watch" | "data-setup-watch-lang"): string {
   return WATCH_IDS.map((id) => {
-    const label = t(WATCH_LABEL_KEY[id]);
-    const name = id === "all" ? t("watchAllName") : LANG_LABEL[id as Lang];
-    const scope = id === "all" ? t("watchAllScope") : t("watchOnly");
-    const aria = escapeHtml(t("watchAria", { label }));
-    return `<button class="chip watch-chip" type="button" ${attr}="${id}" aria-label="${aria}" aria-pressed="false"><span class="watch-name">${escapeHtml(name)}</span><span class="watch-scope">${escapeHtml(scope)}</span></button>`;
+    const aria = escapeHtml(t("watchAria", { label: watchLabel(id) }));
+    const kind = id === "all" ? "is-all" : isWatchPair(id) ? "is-pair" : "is-single";
+    // A pair already names both languages; it needs no second "only" line.
+    const scope = isWatchPair(id) ? "" : `<span class="watch-scope">${escapeHtml(id === "all" ? t("watchAllScope") : t("watchOnly"))}</span>`;
+    return `<button class="chip watch-chip ${kind}" type="button" ${attr}="${id}" aria-label="${aria}" aria-pressed="false"><span class="watch-name">${escapeHtml(watchName(id))}</span>${scope}</button>`;
   }).join("");
 }
 

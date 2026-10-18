@@ -4,7 +4,8 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, describe, it } from "node:test";
 import { WebSocket } from "ws";
-import { attachCaptionRelay } from "../server/relay.ts";
+import { attachCaptionRelay, sanitizeCaptionLines } from "../server/relay.ts";
+import { MAX_LINES } from "../src/types.ts";
 
 type Msg = Record<string, any>;
 
@@ -219,5 +220,66 @@ describe("heartbeat", () => {
     await new Promise((r) => setTimeout(r, 500));
     assert.equal(alive.ws.readyState, WebSocket.OPEN);
     alive.close();
+  });
+});
+
+function finalLine(n: number) {
+  return { id: `l${n}`, isFinal: true, text: { en: `line ${n}`, es: `línea ${n}`, pt: `linha ${n}` }, at: n, speaker: "Host" };
+}
+
+describe("late joiner backlog", () => {
+  it("a guest who joins late receives the last 8 caption lines in its first state", async () => {
+    assert.equal(MAX_LINES, 8);
+    const room = nextRoom();
+    const host = new Peer();
+    const tv = new Peer();
+    await host.join(room, "phone", "Host");
+    await tv.join(room, "tv", "TV");
+    // Push 12 finals one by one. Each push carries the whole history (untrimmed,
+    // as an old or misbehaving client might), so the relay itself must cap it.
+    const history = [];
+    for (let n = 1; n <= 12; n += 1) {
+      history.push(finalLine(n));
+      host.send({ type: "push", state: { listening: true, sourceLang: "en", lines: [...history] } });
+    }
+    const seen = await tv.next((m) => m.type === "state" && m.state.lines.at(-1)?.id === "l12");
+    assert.equal(seen.state.lines.length, MAX_LINES, "peers see at most MAX_LINES too");
+
+    const late = new Peer();
+    const joined = await late.join(room, "guest", "Late");
+    assert.ok(joined.peerId);
+    const first = await late.next((m) => m.type === "state");
+    assert.deepEqual(
+      first.state.lines.map((line: Msg) => line.id),
+      ["l5", "l6", "l7", "l8", "l9", "l10", "l11", "l12"],
+    );
+    assert.equal(first.state.lines[0].text.es, "línea 5");
+    assert.equal(first.state.lines[7].speaker, "Host");
+    host.close();
+    tv.close();
+    late.close();
+  });
+});
+
+describe("sanitizeCaptionLines cap", () => {
+  it("keeps the last MAX_LINES finals in order", () => {
+    const rows = Array.from({ length: 11 }, (_, i) => finalLine(i + 1));
+    const kept = sanitizeCaptionLines(rows) as Msg[];
+    assert.deepEqual(kept.map((r) => r.id), ["l4", "l5", "l6", "l7", "l8", "l9", "l10", "l11"]);
+  });
+
+  it("keeps a trailing interim on top of the 8 finals, but drops stray interims earlier on", () => {
+    const rows: Msg[] = Array.from({ length: 9 }, (_, i) => finalLine(i + 1));
+    rows.splice(3, 0, { id: "stray", isFinal: false, text: { en: "uh" }, at: 0 });
+    rows.push({ id: "live", isFinal: false, text: { en: "still talk" }, at: 99 });
+    const kept = sanitizeCaptionLines(rows) as Msg[];
+    assert.deepEqual(kept.map((r) => r.id), ["l2", "l3", "l4", "l5", "l6", "l7", "l8", "l9", "live"]);
+    assert.equal(kept.at(-1)?.isFinal, false);
+  });
+
+  it("leaves short histories alone", () => {
+    const rows = [finalLine(1), finalLine(2)];
+    assert.equal((sanitizeCaptionLines(rows) as Msg[]).length, 2);
+    assert.deepEqual(sanitizeCaptionLines(null), []);
   });
 });
