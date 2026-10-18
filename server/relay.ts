@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
 import { WebSocket, WebSocketServer } from "ws";
+import { MAX_LINES } from "../src/types.ts";
 import { requestAuthorized } from "./auth.ts";
 
 type Role = "phone" | "tv" | "guest";
@@ -423,10 +424,20 @@ function withFloor(state: RoomState, floor: Floor, room: string): RoomState {
   };
 }
 
-/** Keep speaker (and only known caption fields) so a push cannot drop who spoke. */
-function sanitizeCaptionLines(lines: unknown): unknown[] {
+/**
+ * Keep speaker (and only known caption fields) so a push cannot drop who spoke.
+ *
+ * Also caps the stored backlog. Clients already trim to MAX_LINES finalized
+ * lines and only paint interims locally, but the relay must not trust that: a
+ * stale or hostile push could grow the room state (and every late joiner's
+ * first `state`) without bound. We keep the last MAX_LINES *final* lines, in
+ * order. A non-final (interim) row is never counted against that cap and only
+ * survives if it is the very last row, i.e. the line still being spoken, so a
+ * live interim is not dropped while older stray interims are.
+ */
+export function sanitizeCaptionLines(lines: unknown): unknown[] {
   if (!Array.isArray(lines)) return [];
-  const clean = [];
+  const clean: Record<string, unknown>[] = [];
   for (const line of lines) {
     if (!line || typeof line !== "object" || Array.isArray(line)) continue;
     const row = line as Record<string, unknown>;
@@ -450,7 +461,14 @@ function sanitizeCaptionLines(lines: unknown): unknown[] {
     }
     clean.push(next);
   }
-  return clean;
+  return capCaptionLines(clean);
+}
+
+function capCaptionLines(lines: Record<string, unknown>[]): Record<string, unknown>[] {
+  const last = lines.at(-1);
+  const tail = last && last.isFinal === false ? [last] : [];
+  const finals = lines.filter((line) => line.isFinal !== false).slice(-MAX_LINES);
+  return [...finals, ...tail];
 }
 
 function emptyFloor(): Floor {

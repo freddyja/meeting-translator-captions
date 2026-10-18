@@ -38,11 +38,26 @@ export function isLang(value: unknown): value is Lang {
   return value === "en" || value === "es" || value === "pt";
 }
 
-/** Personal caption panes on a join phone. Never sent as the room layout. */
-export type WatchLang = Lang | "all";
+/** Two-language caption view a guest can pick for their own phone. */
+export type WatchPair = "en-es" | "en-pt" | "es-pt";
 
+export const WATCH_PAIRS: WatchPair[] = ["en-es", "en-pt", "es-pt"];
+
+/** Personal caption panes on a join phone. Never sent as the room layout. */
+export type WatchLang = Lang | WatchPair | "all";
+
+export function isWatchPair(value: unknown): value is WatchPair {
+  return value === "en-es" || value === "en-pt" || value === "es-pt";
+}
+
+/** Also accepts every value older builds stored under mt-guest-watch (en/es/pt/all). */
 export function isWatchLang(value: unknown): value is WatchLang {
-  return value === "all" || isLang(value);
+  return value === "all" || isLang(value) || isWatchPair(value);
+}
+
+/** A stored or tapped value, or "all" when it is missing or unknown. */
+export function parseWatchLang(value: unknown): WatchLang {
+  return isWatchLang(value) ? value : "all";
 }
 
 export const LANG_LABEL: Record<Lang, string> = {
@@ -88,7 +103,9 @@ export function langsForLayout(layout: Layout): Lang[] {
 /** Panes a join phone shows for its Watch preference. Independent of the room layout. */
 export function langsForWatch(watch: WatchLang): Lang[] {
   if (watch === "all") return [...LANGS];
-  return [watch];
+  if (isWatchPair(watch)) return watch.split("-") as Lang[];
+  if (isLang(watch)) return [watch];
+  return [...LANGS];
 }
 
 export function emptyFloor(): FloorState {

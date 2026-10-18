@@ -10,6 +10,7 @@ export function swapHostLangs(spoken: Lang, layout: Layout): { spoken: Lang; lay
   return { spoken: layout, layout: spoken };
 }
 
+/** Pairs (EN | ES …) and "all" never swap: only a single Watch language trades places with Spoken. */
 export function swapGuestLangs(spoken: Lang, watch: WatchLang): { spoken: Lang; watch: WatchLang } | null {
   if (!isLang(watch) || watch === spoken) return null;
   return { spoken: watch, watch: spoken };
