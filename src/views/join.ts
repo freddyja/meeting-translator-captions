@@ -43,7 +43,6 @@ import {
   lostFloor,
   reconcileFloor,
   LANG_LABEL,
-  LANG_SHORT,
   LANGS,
   isWatchLang,
   langsForWatch,
@@ -59,14 +58,10 @@ import {
   type WatchLang,
 } from "../types";
 import { trackSpeech } from "../update/activity";
+import { micUi, shouldReleaseTypedFloor } from "../mic-ui";
+import { confirmLeave } from "./confirm";
+import { markMeetingUsed, openTour } from "./onboarding-ui";
 
-const micIcon = `
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-  <rect x="9" y="3" width="6" height="11" rx="3"/>
-  <path d="M6 11a6 6 0 0 0 12 0"/>
-  <path d="M12 17v4M8 21h8"/>
-</svg>
-`;
 
 const NAME_KEY = "mt-guest-name";
 const WATCH_KEY = "mt-guest-watch";
@@ -110,6 +105,9 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
 
   root.innerHTML = `
     <section class="screen join-setup entry-scene scene-bg" data-join-setup>
+      <div class="setup-top">
+        <button class="secondary setup-leave" data-setup-home type="button" data-i18n="leaveSetup"></button>
+      </div>
       ${brandBlock(true)}
       <p class="join-room"><span data-i18n="roomWord"></span> <strong>${escapeHtml(room)}</strong></p>
       ${uiLangSwitcherHtml("entry")}
@@ -126,45 +124,50 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
         <div class="chips join-setup-watch" data-setup-watch role="group" aria-labelledby="join-watch-q"></div>
       </fieldset>
       <button class="primary join-setup-go" data-join-continue type="button" data-i18n="join"></button>
-      <button class="ghost" data-setup-home type="button" data-i18n="leave"></button>
       ${creditFooter()}
     </section>
-    <section class="screen join-screen" data-join-screen hidden>
+    <section class="screen join-screen ux-guest" data-join-screen hidden>
       <div class="tv-top">
         ${brandBlock(true)}
         <div class="tv-meta">
           <div class="room-pill"><span data-i18n="roomWord"></span> <strong data-room></strong></div>
           <div class="status-pill"><span class="dot" data-dot></span><span data-status></span></div>
-          ${uiLangSwitcherHtml(true)}
-          <button class="ghost" data-home type="button" data-i18n="leave"></button>
+          <button class="secondary help-btn" data-help type="button" data-i18n="helpBtn" data-i18n-aria="helpAria"></button>
+          <button class="secondary leave-btn" data-home type="button" data-i18n="leave"></button>
         </div>
       </div>
-      <p class="floor-banner" data-floor></p>
+      <p class="floor-banner" data-floor role="status" aria-live="polite"></p>
+      <div class="join-actions">
+        <button class="mic mic-big" data-mic type="button" aria-pressed="false">
+          <span class="mic-big-label" data-mic-label></span>
+        </button>
+      </div>
       <div class="join-main">
         <main class="tv-board" data-board></main>
       </div>
       <div class="join-dock">
+        <div class="join-prefs-bar">
+          <span class="join-prefs-summary" data-prefs-summary></span>
+          <button class="secondary join-prefs-toggle" data-prefs-toggle type="button" aria-expanded="false" aria-controls="join-prefs-panel" data-i18n="changePrefs" data-i18n-aria="changePrefsAria"></button>
+        </div>
+        <div class="join-prefs-panel" id="join-prefs-panel" data-prefs-panel hidden>
+          ${uiLangSwitcherHtml("entry")}
+          <label class="join-name">
+            <span data-i18n="yourName"></span>
+            <input data-name maxlength="24" autocomplete="name" data-i18n-placeholder="guestName" enterkeyhint="done" />
+          </label>
+          <div class="join-prefs">
+            <div class="join-spoken">
+              <p class="control-label" data-i18n="spokenLanguage"></p>
+              <div class="chips" data-source></div>
+            </div>
+            <div class="join-watch">
+              <p class="control-label lang-label-row"><span id="join-watch-label" data-i18n="watch"></span><button class="swap-icon" data-swap type="button" data-i18n-aria="swapAria"><span aria-hidden="true">⇄</span></button></p>
+              <div class="chips" data-watch-box role="group" aria-labelledby="join-watch-label"></div>
+            </div>
+          </div>
+        </div>
         <p class="smart-view-tip" data-stt-hint></p>
-        <label class="join-name">
-          <span data-i18n="yourName"></span>
-          <input data-name maxlength="24" autocomplete="name" data-i18n-placeholder="guestName" enterkeyhint="done" />
-        </label>
-        <div class="join-prefs">
-          <div class="join-spoken">
-            <p class="control-label" data-i18n="spokenLanguage"></p>
-            <div class="chips" data-source></div>
-          </div>
-          <div class="join-watch">
-            <p class="control-label lang-label-row"><span id="join-watch-label" data-i18n="watch"></span><button class="swap-icon" data-swap type="button" data-i18n-aria="swapAria"><span aria-hidden="true">⇄</span></button></p>
-            <div class="chips" data-watch-box role="group" aria-labelledby="join-watch-label"></div>
-          </div>
-        </div>
-        <div class="smart-view-controls join-actions">
-          <button class="smart-view-mic" data-mic type="button" aria-pressed="false">
-            ${micIcon}
-            <small data-mic-label data-i18n="start"></small>
-          </button>
-        </div>
         <p class="hint" data-error></p>
         <form class="typed-caption join-type" data-type>
           <input name="caption" autocomplete="off" autocorrect="on" autocapitalize="sentences" enterkeyhint="send" />
@@ -178,7 +181,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
 
   const sourceBox = root.querySelector("[data-source]") as HTMLElement;
   sourceBox.innerHTML = LANGS.map(
-    (lang) => `<button class="chip" type="button" data-lang="${lang}">${LANG_SHORT[lang]} ${LANG_LABEL[lang]}</button>`,
+    (lang) => `<button class="chip" type="button" data-lang="${lang}">${LANG_LABEL[lang]}</button>`,
   ).join("");
 
   const watchBox = root.querySelector("[data-watch-box]") as HTMLElement;
@@ -196,6 +199,10 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   const board = root.querySelector("[data-board]") as HTMLElement;
   const nameInput = root.querySelector("[data-name]") as HTMLInputElement;
   const sttHint = root.querySelector("[data-stt-hint]") as HTMLElement;
+  const prefsToggle = root.querySelector("[data-prefs-toggle]") as HTMLButtonElement;
+  const prefsPanel = root.querySelector("[data-prefs-panel]") as HTMLElement;
+  const prefsSummary = root.querySelector("[data-prefs-summary]") as HTMLElement;
+  const helpBtn = root.querySelector("[data-help]") as HTMLButtonElement;
   const landscapeMq = window.matchMedia("(orientation: landscape)");
   nameInput.value = displayName === "Guest" ? displayRole("Guest") : displayName;
   setupName.value = displayName === "Guest" ? "" : displayName;
@@ -223,7 +230,8 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     if (stt.insecure) return t("sttHttps");
     if (!stt.canListen) return t("sttNeedsChrome");
     if (stt.preferType) return t("sttPreferType");
-    return t("sttSameMeeting");
+    // The floor banner already says "one person at a time"; no extra line needed.
+    return "";
   }
 
   function renderDynamic() {
@@ -239,27 +247,38 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     const tvNote = peers.tvs > 0 ? t("tvConnectedSuffix", { n: peers.tvs }) : "";
     const connNote =
       live ? `${guestNote}${tvNote}` : connStatus === "connecting" ? t("connecting") : downNote;
-    els.status.textContent = holding && state.listening ? t("listeningDot", { note: connNote }) : connNote;
-    els.dot.className = `dot ${holding && state.listening ? "listening" : connStatus === "live" ? "live" : "offline"}`;
+    // Only a live mic session counts as listening. Type + Send also holds the
+    // floor (state.listening is true on the wire while it posts), but must never
+    // light the mic, flip it to Stop, or say "You're speaking".
+    const mic = micUi({ holding, micLive: micActive, blocked });
+    els.status.textContent = mic.listening ? t("listeningDot", { note: connNote }) : connNote;
+    els.dot.className = `dot ${mic.listening ? "listening" : connStatus === "live" ? "live" : "offline"}`;
     els.mic.hidden = !showMic;
-    els.mic.classList.toggle("hot", holding && state.listening);
+    els.mic.classList.toggle("hot", mic.hot);
     els.mic.disabled = blocked;
-    els.mic.setAttribute("aria-pressed", String(holding && state.listening));
-    els.micLabel.textContent = holding ? t("stop") : blocked ? t("wait") : t("start");
+    els.mic.setAttribute("aria-pressed", String(mic.hot));
+    els.micLabel.textContent = mic.label === "stop" ? t("micTapToStop") : mic.label === "wait" ? t("micWaitTurn") : t("micTapToTalk");
+    let floorState = "free";
     if (heldByOther && !live) {
       els.floor.textContent = downNote;
+      floorState = "down";
     } else if (blocked) {
       els.floor.textContent = displayCopy(someoneElseSpeaking(floor));
-    } else if (holding && state.listening) {
+      floorState = "busy";
+    } else if (mic.listening) {
       els.floor.textContent = typeFallback ? t("floorYouType") : t("floorYouSpeaking");
-    } else if (holding) {
-      els.floor.textContent = t("floorYouHaveMic");
+      floorState = "you";
     } else if (!showMic) {
       els.floor.textContent = t("floorMicFreeType");
     } else {
       els.floor.textContent = t("floorMicFreeStart");
     }
+    els.floor.dataset.state = floorState;
     els.floor.hidden = false;
+    prefsSummary.textContent = t("prefsSummary", {
+      name: displayName === "Guest" ? displayRole("Guest") : displayName,
+      spoken: LANG_LABEL[sourceLang],
+    });
     sttHint.textContent = sttHintText();
     const extra = lastCaptionWasMock ? t("offlineLimited") : "";
     const translateNote = translateStatus() === "waking" ? t("translateWaking") : "";
@@ -452,7 +471,19 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
       .catch(() => undefined)
       .finally(() => {
         publishing -= 1;
+        releaseTypedFloor();
       });
+  };
+
+  /** A typed message is posted: give the speaking turn back so others can talk. */
+  const releaseTypedFloor = () => {
+    if (!shouldReleaseTypedFloor({ holding: isFloorHolder(floor, peerId), micLive: micActive, publishing })) return;
+    void (async () => {
+      await conn?.releaseFloor();
+      if (micActive) return;
+      state = { ...state, listening: false, floor };
+      renderDynamic();
+    })();
   };
 
   // Interims paint on this phone only. Peers receive one committed line.
@@ -545,13 +576,32 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     writeGuestName(displayName);
     nameInput.value = displayName === "Guest" ? displayRole("Guest") : displayName;
     if (isFloorHolder(floor, peerId)) void conn?.claimFloor(displayName);
+    renderDynamic();
   };
 
   const onHome = () => {
-    speech.stop();
-    releaseWake();
-    void conn?.releaseFloor();
-    goto("home");
+    void confirmLeave(screenEl, "leave").then((ok) => {
+      if (!ok) return;
+      speech.stop();
+      releaseWake();
+      void conn?.releaseFloor();
+      goto("home");
+    });
+  };
+
+  const onPrefsToggle = () => {
+    const open = prefsPanel.hidden;
+    prefsPanel.hidden = !open;
+    prefsToggle.setAttribute("aria-expanded", String(open));
+    prefsToggle.classList.toggle("active", open);
+  };
+
+  let closeTour: (() => void) | null = null;
+  const onHelp = () => {
+    if (closeTour) return;
+    closeTour = openTour(screenEl, () => {
+      closeTour = null;
+    });
   };
 
   /** One-shot language from ⋯ More → Photo; cleared so the next typed caption uses Spoken. */
@@ -668,6 +718,7 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
       keepFloorOnReconnect: () => micActive || publishing > 0,
       onJoined(info) {
         peerId = info.peerId;
+        markMeetingUsed();
         const next = info.floor ?? floor;
         // Reconnected after someone else took the floor while we were away.
         if (state.listening && floorHeldByOther(next, info.peerId)) {
@@ -740,6 +791,8 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
   });
   nameInput.addEventListener("change", onName);
   root.querySelector("[data-home]")?.addEventListener("click", onHome);
+  prefsToggle.addEventListener("click", onPrefsToggle);
+  helpBtn.addEventListener("click", onHelp);
   typeForm.addEventListener("submit", onType);
   setupSource.addEventListener("click", onSetupSource);
   setupWatch.addEventListener("click", onSetupWatch);
@@ -769,6 +822,9 @@ export function mountJoin(root: HTMLElement, room: string): () => void {
     swapBtn.removeEventListener("click", onSwap);
     unmountMore();
     nameInput.removeEventListener("change", onName);
+    prefsToggle.removeEventListener("click", onPrefsToggle);
+    helpBtn.removeEventListener("click", onHelp);
+    closeTour?.();
     typeForm.removeEventListener("submit", onType);
     setupSource.removeEventListener("click", onSetupSource);
     setupWatch.removeEventListener("click", onSetupWatch);

@@ -17,6 +17,8 @@ export type WritePanelOptions = {
   lang: () => Lang;
   /** Recognized text (already trimmed, never empty). */
   onText: (text: string) => void;
+  /** The one Clear button: also empty whatever the host shows next to the pad. */
+  onClear?: () => void;
   ocr?: OcrEngine;
 };
 
@@ -28,8 +30,11 @@ export type WritePanel = {
 };
 
 export const WRITE_PANEL_HTML = `
-  <p class="hint" data-write-hint></p>
-  <canvas class="write-pad" data-write-pad data-i18n-aria="writeTitle"></canvas>
+  <div class="write-pad-wrap">
+    <canvas class="write-pad" data-write-pad data-i18n-aria="writeTitle"></canvas>
+    <span class="write-here" data-write-here aria-hidden="true" data-i18n="writeHere"></span>
+  </div>
+  <p class="hint write-warning" data-write-hint hidden></p>
   <div class="row-actions write-actions">
     <button class="ghost" data-write-undo type="button" data-i18n="undoStroke"></button>
     <button class="ghost" data-write-clear type="button" data-i18n="clearDrawing"></button>
@@ -43,6 +48,13 @@ export function mountWritePanel(container: HTMLElement, options: WritePanelOptio
   const q = <T extends Element>(sel: string) => container.querySelector(sel) as T;
   const pad = q<HTMLCanvasElement>("[data-write-pad]");
   const hint = q<HTMLElement>("[data-write-hint]");
+  const writeHere = q<HTMLElement>("[data-write-here]");
+  /** The photo-style fallback note shows only after it failed to read something. */
+  const showOcrWarning = (on: boolean) => {
+    const show = on && engine?.kind === "ocr";
+    hint.hidden = !show;
+    hint.textContent = show ? t("writeHintOcr") : "";
+  };
   const status = q<HTMLElement>("[data-write-status]");
   const strokes: Stroke[] = [];
   let current: Stroke | null = null;
@@ -61,6 +73,7 @@ export function mountWritePanel(container: HTMLElement, options: WritePanelOptio
       pad.width = w;
       pad.height = h;
     }
+    writeHere.hidden = strokes.length > 0;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, rect.width, rect.height);
     ctx.strokeStyle = getComputedStyle(pad).color || "#fff";
@@ -81,7 +94,6 @@ export function mountWritePanel(container: HTMLElement, options: WritePanelOptio
       engine = await pickHandwritingEngine(lang, fallback);
       engineLang = lang;
     }
-    hint.textContent = engine.kind === "native" ? t("writeHintNative") : t("writeHintOcr");
     hint.dataset.engine = engine.kind;
     return engine;
   };
@@ -117,14 +129,17 @@ export function mountWritePanel(container: HTMLElement, options: WritePanelOptio
       const text = await active.recognize(strokes, options.lang());
       if (!text) {
         status.textContent = t("nothingRecognized");
+        showOcrWarning(true);
         return;
       }
       status.textContent = "";
+      showOcrWarning(false);
       strokes.length = 0;
       redraw();
       options.onText(text);
     } catch {
       status.textContent = engine?.kind === "ocr" ? t("ocrFailed") : t("nothingRecognized");
+      showOcrWarning(true);
     }
   };
   const onUndo = () => {
@@ -134,7 +149,12 @@ export function mountWritePanel(container: HTMLElement, options: WritePanelOptio
   const clear = () => {
     strokes.length = 0;
     status.textContent = "";
+    showOcrWarning(false);
     redraw();
+  };
+  const onClearClick = () => {
+    clear();
+    options.onClear?.();
   };
   const recognizeClick = () => void onRecognize();
   const undoBtn = q<HTMLButtonElement>("[data-write-undo]");
@@ -145,7 +165,7 @@ export function mountWritePanel(container: HTMLElement, options: WritePanelOptio
   pad.addEventListener("pointerup", onUp);
   pad.addEventListener("pointercancel", onUp);
   undoBtn.addEventListener("click", onUndo);
-  clearBtn.addEventListener("click", clear);
+  clearBtn.addEventListener("click", onClearClick);
   recognizeBtn.addEventListener("click", recognizeClick);
   applyI18n(container);
   void ensureEngine();
@@ -162,7 +182,7 @@ export function mountWritePanel(container: HTMLElement, options: WritePanelOptio
       pad.removeEventListener("pointerup", onUp);
       pad.removeEventListener("pointercancel", onUp);
       undoBtn.removeEventListener("click", onUndo);
-      clearBtn.removeEventListener("click", clear);
+      clearBtn.removeEventListener("click", onClearClick);
       recognizeBtn.removeEventListener("click", recognizeClick);
       container.innerHTML = "";
     },

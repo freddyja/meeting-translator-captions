@@ -9,8 +9,7 @@ import {
 } from "../install";
 import { generateRoomCode, isRoomCode, normalizeRoomCode } from "../room";
 import { goto, isToolView } from "../router";
-import { hapticMode, hapticsEnabled, setHapticsEnabled } from "../haptics";
-import { isAppleMobile } from "../stt/capability";
+import { bindHapticsToggle, hapticsToggleHtml } from "../haptics-toggle";
 import { mountInstallBanner, openTour, tourDone } from "./onboarding-ui";
 
 export function mountHome(root: HTMLElement): () => void {
@@ -18,29 +17,19 @@ export function mountHome(root: HTMLElement): () => void {
     <section class="screen home-screen entry-scene scene-bg">
       ${brandBlock()}
       ${uiLangSwitcherHtml("home")}
-      <button class="primary home-create" data-create type="button" data-i18n="createRoom"></button>
-      <details class="home-fold">
-        <summary data-i18n="haveRoomCode"></summary>
-        <form class="home-code" data-join>
-          <label class="field">
-            <span data-i18n="roomCode"></span>
-            <input name="room" maxlength="4" autocomplete="off" spellcheck="false" placeholder="ABCD" />
-          </label>
-          <button class="secondary" type="submit" data-i18n="openTvWindows"></button>
-          <button class="secondary" data-join-phone type="button" data-i18n="joinThisPhone"></button>
-        </form>
-      </details>
-      <details class="home-fold">
-        <summary data-i18n="installTitle"></summary>
-        <div class="home-fold-body">
-          <p class="hint" data-i18n-html="homeHint"></p>
-          <aside class="install-card" data-install>
-            <p class="install-copy" data-install-copy></p>
-            <button class="primary" data-install-btn type="button" hidden data-i18n="installApp"></button>
-            <ol class="install-steps" data-install-steps></ol>
-          </aside>
-        </div>
-      </details>
+      <div class="home-actions">
+        <button class="primary big-action home-create" data-create type="button" data-i18n="createRoom"></button>
+        <button class="primary big-action home-join-btn" data-join-open type="button" aria-expanded="false" aria-controls="home-join-form" data-i18n="joinMeeting"></button>
+      </div>
+      <form class="home-code" id="home-join-form" data-join hidden>
+        <label class="field">
+          <span data-i18n="roomCode"></span>
+          <input name="room" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD" />
+        </label>
+        <p class="hint" data-i18n="joinMeetingHint"></p>
+        <button class="primary" type="submit" data-i18n="joinThisPhone"></button>
+        <button class="secondary" data-open-tv type="button" data-i18n="openTvWindows"></button>
+      </form>
       <section class="more-tools" aria-labelledby="more-tools-title">
         <h2 class="control-label" id="more-tools-title" data-i18n="moreTools"></h2>
         <div class="tool-tiles">
@@ -50,19 +39,33 @@ export function mountHome(root: HTMLElement): () => void {
         </div>
       </section>
       <div class="home-help">
-        <button class="ghost help-link" type="button" data-tour-open data-i18n="helpLink"></button>
-        <label class="haptics-toggle" data-haptics-row hidden>
-          <input type="checkbox" data-haptics-toggle />
-          <span data-i18n="hapticsToggle"></span>
-        </label>
+        <button class="secondary help-link" type="button" data-tour-open data-i18n="helpLink"></button>
       </div>
+      <details class="home-fold home-settings">
+        <summary data-i18n="settings"></summary>
+        <div class="home-fold-body">
+          ${hapticsToggleHtml()}
+          <details class="home-fold">
+            <summary data-i18n="installTitle"></summary>
+            <div class="home-fold-body">
+              <p class="hint" data-i18n-html="homeHint"></p>
+              <aside class="install-card" data-install>
+                <p class="install-copy" data-install-copy></p>
+                <button class="primary" data-install-btn type="button" hidden data-i18n="installApp"></button>
+                <ol class="install-steps" data-install-steps></ol>
+              </aside>
+            </div>
+          </details>
+        </div>
+      </details>
       ${creditFooter()}
     </section>
   `;
 
   const create = root.querySelector("[data-create]");
   const form = root.querySelector("[data-join]");
-  const joinPhone = root.querySelector("[data-join-phone]");
+  const joinOpen = root.querySelector("[data-join-open]") as HTMLButtonElement;
+  const openTv = root.querySelector("[data-open-tv]") as HTMLButtonElement;
   const input = root.querySelector("input[name='room']") as HTMLInputElement;
   const installCard = root.querySelector("[data-install]") as HTMLElement;
   const installCopy = root.querySelector("[data-install-copy]") as HTMLElement;
@@ -112,6 +115,15 @@ export function mountHome(root: HTMLElement): () => void {
   const onInput = () => {
     input.value = normalizeRoomCode(input.value);
   };
+  /** Join a meeting: the room code field opens right under the big button. */
+  const onJoinOpen = () => {
+    const formEl = form as HTMLFormElement;
+    const open = formEl.hidden;
+    formEl.hidden = !open;
+    joinOpen.setAttribute("aria-expanded", String(open));
+    joinOpen.classList.toggle("active", open);
+    if (open) input.focus();
+  };
   const onJoin = (event: Event) => {
     event.preventDefault();
     const room = normalizeRoomCode(input.value);
@@ -119,15 +131,15 @@ export function mountHome(root: HTMLElement): () => void {
       input.focus();
       return;
     }
-    goto("tv", room);
+    goto("join", room);
   };
-  const onJoinPhone = () => {
+  const onOpenTv = () => {
     const room = normalizeRoomCode(input.value);
     if (!isRoomCode(room)) {
       input.focus();
       return;
     }
-    goto("join", room);
+    goto("tv", room);
   };
   const tiles = root.querySelector(".tool-tiles") as HTMLElement;
   const onTool = (event: Event) => {
@@ -141,7 +153,8 @@ export function mountHome(root: HTMLElement): () => void {
   create?.addEventListener("click", onCreate);
   input.addEventListener("input", onInput);
   form?.addEventListener("submit", onJoin);
-  joinPhone?.addEventListener("click", onJoinPhone);
+  joinOpen.addEventListener("click", onJoinOpen);
+  openTv.addEventListener("click", onOpenTv);
   installBtn.addEventListener("click", onInstall);
   tiles.addEventListener("click", onTool);
   const screen = root.querySelector(".home-screen") as HTMLElement;
@@ -161,20 +174,8 @@ export function mountHome(root: HTMLElement): () => void {
   };
   const tourBtn = root.querySelector("[data-tour-open]") as HTMLButtonElement;
   tourBtn.addEventListener("click", startTour);
-  // Haptics toggle only where a tick is possible (Android vibrate, iOS 18 switch).
-  const hapticsRow = root.querySelector("[data-haptics-row]") as HTMLElement;
-  const hapticsBox = root.querySelector("[data-haptics-toggle]") as HTMLInputElement;
-  hapticsRow.hidden =
-    hapticMode({
-      enabled: true,
-      reducedMotion: false,
-      hasVibrate: typeof navigator.vibrate === "function",
-      appleMobile: isAppleMobile(),
-      switchSupported: "switch" in HTMLInputElement.prototype,
-    }) === "off";
-  hapticsBox.checked = hapticsEnabled();
-  const onHaptics = () => setHapticsEnabled(hapticsBox.checked);
-  hapticsBox.addEventListener("change", onHaptics);
+  // "Vibrate on tap" lives under Settings, only where a tick is possible.
+  const unbindHaptics = bindHapticsToggle(root);
   // The home view is never the TV or a room, so first run is safe to show here.
   if (!tourDone()) startTour();
   else showBanner();
@@ -186,11 +187,12 @@ export function mountHome(root: HTMLElement): () => void {
     create?.removeEventListener("click", onCreate);
     input.removeEventListener("input", onInput);
     form?.removeEventListener("submit", onJoin);
-    joinPhone?.removeEventListener("click", onJoinPhone);
+    joinOpen.removeEventListener("click", onJoinOpen);
+    openTv.removeEventListener("click", onOpenTv);
+    unbindHaptics();
     installBtn.removeEventListener("click", onInstall);
     tiles.removeEventListener("click", onTool);
     tourBtn.removeEventListener("click", startTour);
-    hapticsBox.removeEventListener("change", onHaptics);
     closeTour?.();
     unBanner();
     unsubscribe();

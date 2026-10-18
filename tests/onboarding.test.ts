@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { HAPTIC_SELECTOR, hapticMode } from "../src/haptics.ts";
-import { installPlatform, shouldShowInstallBanner, shouldShowTour } from "../src/onboarding.ts";
+import { installPlatform, shouldShowInstallBanner, shouldShowTour, tourCards } from "../src/onboarding.ts";
 
-const base = { view: "home", standalone: false, dismissed: false, platform: "ios" as const, tourOpen: false };
+const base = { view: "home", standalone: false, dismissed: false, platform: "ios" as const, tourOpen: false, meetingUsed: true };
 
 test("install banner: iOS guide or Android prompt, front screen only", () => {
   assert.equal(installPlatform({ appleMobile: true, canPrompt: false }), "ios");
@@ -18,6 +18,17 @@ test("install banner: iOS guide or Android prompt, front screen only", () => {
   assert.equal(shouldShowInstallBanner({ ...base, dismissed: true }), false);
   assert.equal(shouldShowInstallBanner({ ...base, tourOpen: true }), false);
   assert.equal(shouldShowInstallBanner({ ...base, platform: "none" }), false);
+});
+
+test("install banner: never on the first visit, only after a meeting was used once", () => {
+  assert.equal(shouldShowInstallBanner({ ...base, meetingUsed: false }), false);
+  assert.equal(shouldShowInstallBanner({ ...base, platform: "prompt", meetingUsed: false }), false);
+  assert.equal(shouldShowInstallBanner({ ...base, meetingUsed: true }), true);
+});
+
+test("walkthrough: PIN card skipped once the PIN was entered (or none is needed)", () => {
+  assert.deepEqual(tourCards({ pinHandled: false }), ["captions", "create", "pin", "tv"]);
+  assert.deepEqual(tourCards({ pinHandled: true }), ["captions", "create", "tv"]);
 });
 
 test("tour: once, front screen only", () => {
